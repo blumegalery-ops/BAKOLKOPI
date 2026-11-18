@@ -211,7 +211,7 @@ async function halDetail(id) {
   if (k.status === 'DIAJUKAN' && boleh('PPTK', 'BENDAHARA')) tombol.push('<button class="pri" id="b-verif">Verifikasi</button><button class="bad" id="b-kembali">Kembalikan…</button>');
   if (['TERVERIFIKASI', 'DICETAK'].includes(k.status) && boleh('ADMIN', 'OPERATOR', 'BENDAHARA')) tombol.push('<button id="b-spj">Isi tanggal SPJ</button>');
   if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status) && boleh('ADMIN') && !k.tgl_spj) tombol.push('<button id="b-spjk">Koreksi tanggal SPJ (admin)</button>');
-  if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status) && boleh('ADMIN', 'OPERATOR', 'BENDAHARA')) tombol.push('<button id="b-cetak">Catat pencetakan…</button>');
+  if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status)) tombol.push('<button id="b-cetak">Catat pencetakan…</button>');
   if (k.status === 'DICETAK' && boleh('BENDAHARA')) tombol.push('<button class="pri" id="b-cair">Tandai dicairkan</button>');
   tombol.unshift(`<a class="btn" href="#/cetak/${id}/surat-tugas">Cetak Surat Tugas</a>`);
   if (k.jenis === 'SPPD') tombol.unshift(`<a class="btn" href="#/cetak/${id}/spd">Cetak SPD</a>`);
@@ -293,7 +293,7 @@ async function halForm(id) {
   };
   const drawP = () => {
     $('#ptb').innerHTML = peserta.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(M.peg_by[p.pegawai_id]?.nama)}</td>
-     <td><input type="checkbox" data-i="${i}" data-f="pengikut" ${p.pengikut ? 'checked' : ''} ${dis}></td>
+     <td><input type="checkbox" data-i="${i}" data-f="pengikut" ${p.pengikut || M.peg_by[p.pegawai_id]?.jenis === 'NON_ASN' ? 'checked' : ''} ${dis || (M.peg_by[p.pegawai_id]?.jenis === 'NON_ASN' ? 'disabled title="Non-ASN selalu di kolom Pengikut"' : '')}></td>
      ${['transport', 'inap', 'kontribusi', 'representasi'].map(f => `<td><input type="number" min="0" step="1000" data-i="${i}" data-f="${f}" value="${p[f] || 0}"></td>`).join('')}
      <td>${beku ? '' : `<button data-i="${i}" data-a="up">↑</button><button data-i="${i}" data-a="dn">↓</button><button class="bad" data-i="${i}" data-a="del">×</button>`}</td></tr>`).join('') || '<tr><td colspan="8" class="mut">Belum ada peserta.</td></tr>';
     $('#ptb').querySelectorAll('input').forEach(inp => inp.onchange = () => { const p = peserta[+inp.dataset.i]; p[inp.dataset.f] = inp.type === 'checkbox' ? inp.checked : +inp.value; });
@@ -309,7 +309,7 @@ async function halForm(id) {
       const h = v ? M.tuj.filter(t => t.aktif && !tuj.includes(t.id) && t.nama.toLowerCase().includes(v)).slice(0, 12) : [];
       $('#tsug').innerHTML = h.length ? `<div class="sug">${h.map(t => `<div data-t="${t.id}">${esc(t.nama)} <span class="mut">${t.tingkat === 'KECAMATAN' ? 'kecamatan' : t.provinsi || ''} · ${t.kode_dn}</span></div>`).join('')}</div>` : '';
       $('#tsug').querySelectorAll('div[data-t]').forEach(d => d.onclick = () => { tuj.push(+d.dataset.t); $('#tcari').value = ''; $('#tsug').innerHTML = ''; drawT(); }); };
-    $('#bpadd').onclick = () => { const v = +$('#padd').value; if (!v) return; peserta.push({ pegawai_id: v, pengikut: false, transport: 0, inap: 0, kontribusi: 0, representasi: 0 }); drawP(); drawAdd(); };
+    $('#bpadd').onclick = () => { const v = +$('#padd').value; if (!v) return; peserta.push({ pegawai_id: v, pengikut: M.peg_by[v]?.jenis === 'NON_ASN', transport: 0, inap: 0, kontribusi: 0, representasi: 0 }); drawP(); drawAdd(); };
   }
   drawT(); drawP(); drawAdd();
   $('#simpan').onclick = async () => {
@@ -417,8 +417,14 @@ async function dataCetak(id) {
   if (!k) throw { message: 'Kegiatan tidak ditemukan.' };
   const ps = await q(db.from('peserta').select('*').eq('kegiatan_id', id).order('urutan'));
   const tujuan = [...k.kegiatan_tujuan].sort((a, b) => a.urutan - b.urutan).map(x => x.tujuan);
-  const pegs = ps.length ? await q(db.from('pegawai').select('id,tgl_lahir').in('id', ps.map(p => p.pegawai_id))) : [];
+  let pegs = [];
+  if (ps.length) {
+    const ids = ps.map(p => p.pegawai_id);
+    const r1 = await db.from('pegawai').select('id,tgl_lahir,ket_spd').in('id', ids);
+    pegs = r1.error ? await q(db.from('pegawai').select('id,tgl_lahir').in('id', ids)) : r1.data;
+  }
   const lahir = Object.fromEntries(pegs.map(p => [p.id, p.tgl_lahir]));
+  const ket = Object.fromEntries(pegs.map(p => [p.id, p.ket_spd]));
   const pjST = k.pejabat_surat_tugas || await q(db.rpc('snapshot_pejabat', { p_sub: k.sub_bagian_id, p_tanggal: k.tgl_surat_tugas || k.tgl_berangkat }));
   const pjSPD = k.pejabat_spd || await q(db.rpc('snapshot_pejabat', { p_sub: k.sub_bagian_id, p_tanggal: k.tgl_berangkat }));
   const sub = S.master.sub_by[k.sub_bagian_id];
@@ -428,7 +434,7 @@ async function dataCetak(id) {
   const kecIds = tujuan.filter(t => t.tingkat === 'KECAMATAN').map(t => t.id);
   if (kecIds.length) camat = await q(db.from('pejabat_kecamatan').select('tujuan_id,nama,nip,jabatan,berlaku_dari,berlaku_sampai').in('tujuan_id', kecIds).lte('berlaku_dari', k.tgl_berangkat));
   camat = camat.filter(c => !c.berlaku_sampai || c.berlaku_sampai >= k.tgl_berangkat);
-  return { k, ps, tujuan, lahir, pjST, pjSPD, sub, kend, tpl, camat };
+  return { k, ps, tujuan, lahir, ket, pjST, pjSPD, sub, kend, tpl, camat };
 }
 function nomorST(k) {
   const bln = ROM[dt(k.tgl_surat_tugas || k.tgl_berangkat).getUTCMonth()], th = String(k.tgl_surat_tugas || k.tgl_berangkat).slice(0, 4);
@@ -462,42 +468,49 @@ function suratTugas(D) {
   <div class="ttd"><p>Batang, ${tglP(k.tgl_surat_tugas || k.tgl_berangkat)}</p><p>${ttd}</p><div class="ruang"></div><p><b>${esc(pj?.nama || '…')}</b><br>${esc(pj?.nip || '')}</p></div></section>`;
 }
 function kopSPD() {
-  return `<div class="kop"><img src="${LOGO}" alt=""><div><b>PEMERINTAH KABUPATEN BATANG</b><br><b class="b2">SEKRETARIAT DAERAH</b><br><small>Jalan Raden Ajeng Kartini Nomor 1 Batang 51215, Telepon (0285)391571<br>Faksimile (0285)39105, Laman Sekda@batangkab.go.id, batang.sekda@gmail.com</small></div></div>`;
+  return `<div class="kop"><img src="${LOGO}" alt=""><div><b>PEMERINTAH KABUPATEN BATANG</b><br><b class="b2">SEKRETARIAT DAERAH</b><br><small>Jalan Raden Ajeng Kartini Nomor 1 Batang 51215, Telepon (028)391571<br>Faksimile (0285)39105, Laman Sekda@batangkab.go.id, batang.sekda@gmail.com</small></div></div>`;
 }
 function spdDepan(D, p, pertama, pengikut) {
-  const { k, tujuan, pjSPD, sub, kend, lahir } = D;
+  const { k, tujuan, pjSPD, sub, kend, lahir, ket } = D;
   const luar = k.kode_dn === 'L';
   const akun = (luar ? sub?.kode_rek_luar : sub?.kode_rek_dalam) || '';
   const tj = tujuan.map(t => t.nama).join(', ');
   const nonasn = p.jenis_cetak === 'NON_ASN';
   const kpa = pjSPD.KPA;
-  const nom = p.no_spd ? `${p.no_spd}/${p.tahun_spd}` : '…';
-  const ket = `Surat Tugas Nomor ${nomorST(k)} tanggal ${tglP(k.tgl_surat_tugas || k.tgl_berangkat)}`;
+  const nom = p.no_spd ? `${p.no_spd}/${p.tahun_spd}` : '';
+  const th = String(k.tgl_surat_tugas || k.tgl_berangkat).slice(0, 4);
+  const ketLain = `${k.kode_surat_tugas || ''}/${k.no_surat_tugas_urut || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}/${th} tanggal ${tglP(k.tgl_surat_tugas || k.tgl_berangkat)}`;
+  const ab = (l, v) => `<span class="lt">${l}.</span>${v}`;
+  const baris = pertama ? pengikut : [];
+  const nb = Math.max(3, baris.length);
+  const rowsPeng = Array.from({ length: nb }, (_, i) => { const x = baris[i];
+    return x ? `<tr><td class="a">${i + 1}. ${esc(x.nama_cetak)}</td><td class="c">${lahir[x.pegawai_id] ? tglP(lahir[x.pegawai_id]) : ''}</td><td class="c">${esc(ket[x.pegawai_id] || '')}</td></tr>`
+             : `<tr><td class="a">${i + 1}.</td><td></td><td></td></tr>`; }).join('');
   return `<section class="kertas spd">${kopSPD()}
   <table class="no-spd"><tr><td>Lembar ke</td><td>:</td><td></td></tr><tr><td>Kode</td><td>:</td><td>000.1.2.3</td></tr><tr><td>Nomor</td><td>:</td><td>${nom}</td></tr></table>
   <h3 class="jdl">SURAT PERJALANAN DINAS (SPD)</h3>
   <table class="g">
-   <tr><td class="n">1</td><td class="a">Kuasa Pengguna Anggaran</td><td colspan="2">${esc(TEKS.kpa_label)}</td></tr>
-   <tr><td class="n">2</td><td class="a">Nama Kepala Daerah/ Wakil Kepala Daerah/ Pimpinan DPRD/ Anggota DPRD/ Nama Pegawai ASN dan NIP/ Pihak Lain yang melaksanakan perjalanan dinas</td><td colspan="2">${esc(p.nama_cetak)}<br>NIP. ${esc(nonasn ? '-' : nipTeks(p.nip_cetak))}</td></tr>
-   <tr><td class="n" rowspan="3">3</td><td class="a">a. Pangkat dan Golongan</td><td colspan="2">${nonasn ? '- / (  )' : esc((p.pangkat_cetak || '') + ' dan ' + (p.golongan_cetak || ''))}</td></tr>
-   <tr><td class="a">b. Jabatan/ Instansi</td><td colspan="2">${esc(p.jabatan_cetak || '')}</td></tr>
-   <tr><td class="a">c. Tingkat Biaya Perjalanan Dinas</td><td colspan="2">-</td></tr>
+   <tr><td class="n">1</td><td class="a">Kuasa Pengguna Anggaran</td><td colspan="2">${esc(TEKS.kpa_label)},</td></tr>
+   <tr><td class="n">2</td><td class="a">Nama Kepala Daerah/ Wakil Kepala Daerah/ Pimpinan DPRD/ Anggota DPRD/ Nama Pegawai ASN dan NIP/ Pihak Lain yang melaksanakan perjalan dinas</td><td colspan="2">${esc(p.nama_cetak)}<br>NIP. ${esc(nonasn ? '-' : nipTeks(p.nip_cetak))}</td></tr>
+   <tr><td class="n" rowspan="3">3</td><td class="a">a. Pangkat dan Golongan</td><td colspan="2">${ab('a', nonasn ? '- / (  )' : esc((p.pangkat_cetak || '') + ' dan ' + (p.golongan_cetak || '')))}</td></tr>
+   <tr><td class="a">b. Jabatan/ Instansi</td><td colspan="2">${ab('b', esc(p.jabatan_cetak || ''))}</td></tr>
+   <tr><td class="a">c. Tingkat Biaya Perjalanan Dinas</td><td colspan="2">${ab('c', '-')}</td></tr>
    <tr><td class="n">4</td><td class="a">Maksud Perjalanan Dinas</td><td colspan="2">${esc(k.acara)}</td></tr>
    <tr><td class="n">5</td><td class="a">Alat Angkutan yang dipergunakan</td><td colspan="2">${kend ? esc(kend.jenis + ', ' + kend.nopol) : '-'}</td></tr>
-   <tr><td class="n" rowspan="2">6</td><td class="a">a. Tempat Berangkat</td><td colspan="2">Batang</td></tr>
-   <tr><td class="a">b. Tempat Tujuan</td><td colspan="2">${esc(tj)}</td></tr>
-   <tr><td class="n" rowspan="3">7</td><td class="a">a. Lamanya Perjalanan Dinas</td><td colspan="2">${k.lama_hari} Hari</td></tr>
-   <tr><td class="a">b. Tanggal Berangkat</td><td colspan="2">${tglP(k.tgl_berangkat)}</td></tr>
-   <tr><td class="a">c. Tanggal Harus Kembali/ tiba ditempat baru</td><td colspan="2">${tglP(k.tgl_kembali)}</td></tr>
-   <tr><td class="n" rowspan="${1 + Math.max(3, pengikut.length)}">8</td><td class="a">Pengikut : Nama</td><td><b>Tanggal Lahir</b></td><td><b>Keterangan</b></td></tr>
-   ${[0, 1, 2].map(i => pertama && pengikut[i] ? `<tr><td class="a">${i + 1}. ${esc(pengikut[i].nama_cetak)}</td><td>${lahir[pengikut[i].pegawai_id] ? tglP(lahir[pengikut[i].pegawai_id]) : ''}</td><td></td></tr>` : `<tr><td class="a">${i + 1}.</td><td></td><td></td></tr>`).join('')}
-   ${pertama ? pengikut.slice(3).map((q2, i) => `<tr><td class="a">${i + 4}. ${esc(q2.nama_cetak)}</td><td>${lahir[q2.pegawai_id] ? tglP(lahir[q2.pegawai_id]) : ''}</td><td></td></tr>`).join('') : ''}
-   <tr><td class="n" rowspan="2">9</td><td class="a">Pembebanan Anggaran<br>a. SKPD</td><td colspan="2">${esc(TEKS.skpd)}</td></tr>
-   <tr><td class="a">b. Akun</td><td colspan="2">${esc(akun)}</td></tr>
-   <tr><td class="n">10</td><td class="a">Keterangan Lain-lain</td><td colspan="2">${esc(ket)}</td></tr>
+   <tr><td class="n" rowspan="2">6</td><td class="a">a. Tempat Berangkat</td><td colspan="2">${ab('a', 'Batang')}</td></tr>
+   <tr><td class="a">b. Tempat Tujuan</td><td colspan="2">${ab('b', esc(tj))}</td></tr>
+   <tr><td class="n" rowspan="3">7</td><td class="a">a. Lamanya Perjalanan Dinas</td><td colspan="2">${ab('a', k.lama_hari + ' Hari')}</td></tr>
+   <tr><td class="a">b. Tanggal Berangkat</td><td colspan="2">${ab('b', tglP(k.tgl_berangkat))}</td></tr>
+   <tr><td class="a">c. Tanggal Harus Kembali/tiba ditempat baru</td><td colspan="2">${ab('c', tglP(k.tgl_kembali))}</td></tr>
+   <tr><td class="n" rowspan="${1 + nb}">8</td><td class="a">Pengikut : Nama</td><td class="c">Tanggal Lahir</td><td class="c">Keterangan</td></tr>
+   ${rowsPeng}
+   <tr><td class="n" rowspan="3">9</td><td class="a" colspan="3">Pembebanan Anggaran</td></tr>
+   <tr><td class="a">a. SKPD</td><td colspan="2">${ab('a', esc(TEKS.skpd))}</td></tr>
+   <tr><td class="a">b. Akun</td><td colspan="2">${ab('b', esc(akun))}</td></tr>
+   <tr><td class="n">10</td><td class="a">Keterangan Lain-lain</td><td colspan="2">${ketLain}</td></tr>
   </table>
   <div class="ttd2"><table><tr><td>Dikeluarkan di</td><td>: Batang</td></tr><tr><td>Tanggal</td><td>: ${tglP(k.tgl_berangkat)}</td></tr></table>
-   <p>Kuasa Pengguna Anggaran,</p><div class="ruang"></div><p><b><u>${esc(kpa?.nama || '…')}</u></b><br>NIP.${esc(kpa?.nip || '')}</p></div></section>`;
+   <p>Kuasa Pengguna Anggaran,</p><div class="ruang"></div><p><b><u>${esc(kpa?.nama || '…')}</u></b><br>${esc(kpa?.pangkat || '')}<br>NIP.${esc(kpa?.nip || '')}</p></div></section>`;
 }
 function spdBelakang(D) {
   const { k, tujuan, pjSPD, camat } = D;
@@ -528,7 +541,7 @@ const CSS_CETAK = `<style id="css-cetak">
 .kertas .ttd{margin:18px 0 0 55%;text-align:center}.kertas .ruang{height:70px}.kertas p{margin:4px 0}
 .kop{display:flex;gap:12px;align-items:center;border-bottom:3px double #000;padding-bottom:6px;margin-bottom:8px}.kop img{height:64px}.kop div{text-align:center;flex:1;font-size:12pt}.kop .b2{font-size:14pt}.kop small{font-size:8pt}
 .no-spd{width:200px!important;margin-left:auto;font-size:10pt}
-.spd .g{border:1px solid #000}.spd .g td{border:1px solid #000;padding:3px 5px}.spd .g td.n{width:26px;text-align:center}.spd .g td.a{width:42%}
+.spd,.spd *{font-family:Arial,Helvetica,sans-serif}.spd{font-size:10pt}.spd .g{border:1px solid #000}.spd .lt{display:inline-block;width:30px}.spd .g td.c{text-align:center}.spd .jdl{font-size:10pt;font-weight:bold}.spd .g td{border:1px solid #000;padding:3px 5px}.spd .g td.n{width:26px;text-align:center}.spd .g td.a{width:42%}
 .ttd2{margin:14px 0 0 50%;font-size:11pt}.ttd2 table{width:auto}.ttd2 td{border:0!important;padding:0 4px}.ttd2 p{margin:6px 0}
 .belakang .g td{width:50%;vertical-align:top}.belakang .c{text-align:center}.belakang .kecil{font-size:9.5pt;text-align:justify}
 .alat{max-width:210mm;margin:0 auto 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -543,12 +556,13 @@ async function halCetak(id, dok) {
   let html = '';
   if (dok === 'surat-tugas') html = suratTugas(D);
   else if (dok === 'spd') {
-    const utama = ps.filter(p => !p.pengikut), ikut = ps.filter(p => p.pengikut);
-    html = utama.map((p, i) => spdDepan(D, p, i === 0, ikut) + spdBelakang(D)).join('') || '<div class="card">Tidak ada peserta yang berhak SPD.</div>';
+    const apakahIkut = p => p.pengikut || p.jenis_cetak === 'NON_ASN';   // Non-ASN selalu di kolom Pengikut
+    const utama = ps.filter(p => !apakahIkut(p)), ikut = ps.filter(apakahIkut);
+    html = utama.map((p, i) => spdDepan(D, p, i === 0, ikut) + spdBelakang(D)).join('') || '<div class="card">Tidak ada peserta ASN (non-pengikut) untuk dibuatkan SPD.</div>';
   } else html = '<div class="card">Jenis dokumen belum tersedia.</div>';
   const peringatan = [];
   if (dok === 'surat-tugas' && !k.no_surat_tugas_urut) peringatan.push('Nomor urut surat tugas belum diisi (tampil …).');
-  if (dok === 'spd' && ps.some(p => !p.pengikut && !p.no_spd)) peringatan.push('Nomor SPD baru terbit saat kegiatan diajukan.');
+  if (dok === 'spd' && ps.some(p => !p.pengikut && p.jenis_cetak !== 'NON_ASN' && !p.no_spd)) peringatan.push('Nomor SPD baru terbit saat kegiatan diajukan.');
   if (k.status === 'DRAFT' || k.status === 'DIKEMBALIKAN') peringatan.push('Kegiatan belum terverifikasi: ini pratinjau, pejabat dan angka bisa berubah.');
   $('main').innerHTML = `<div class="alat"><a href="#/kegiatan/${id}">← Kembali</a>
    <a class="btn ${dok === 'surat-tugas' ? 'pri' : ''}" href="#/cetak/${id}/surat-tugas">Surat Tugas</a>
