@@ -119,7 +119,7 @@ function tampilLogin() {
   <form id="f"><label>Email</label><input id="em" type="email" required style="width:100%"><br><br>
   <label>Kata sandi</label><input id="pw" type="password" required style="width:100%"><br><br>
   <button class="pri" style="width:100%">Masuk</button></form></div>`;
-  $('#f').onsubmit = async ev => { ev.preventDefault(); const { error } = await db.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value }); if (error) galat({ message: 'Email atau kata sandi salah.' }); };
+  $('#f').onsubmit = async ev => { ev.preventDefault(); const { error } = await db.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value }); if (error) { const m = error.message || ''; galat({ message: /invalid login/i.test(m) ? 'Email atau kata sandi salah, atau akun ini belum dibuat di Supabase (Authentication > Users).' : /not confirmed/i.test(m) ? 'Email belum dikonfirmasi: di Supabase buka Authentication > Users, menu titik tiga pada akun, lalu pilih konfirmasi, atau buat ulang dengan Auto Confirm User dicentang.' : 'Gagal masuk: ' + m }); } };
 }
 function tampilTanpaAkses() {
   $('#app').innerHTML = `<div class="login card"><h1>Akun belum terdaftar</h1><p>Akun Anda belum dihubungkan dengan peran di aplikasi atau sudah dinonaktifkan. Hubungi admin.</p><button id="out">Keluar</button></div>`;
@@ -222,7 +222,7 @@ async function halDetail(id) {
   <dt>Kendaraan</dt><dd>${kend ? esc(kend.jenis + ', ' + kend.nopol) : '–'}</dd>
   <dt>Tempat (surat)</dt><dd>${esc(k.tempat_surat) || '–'}</dd>
   <dt>Dasar penugasan</dt><dd>${esc(k.dasar_penugasan) || '–'}</dd>
-  <dt>Surat tugas</dt><dd>${k.kode_surat_tugas ? esc(k.kode_surat_tugas) + '/' : ''}<input id="urut" value="${esc(k.no_surat_tugas_urut || '')}" placeholder="no. urut" style="width:90px">/2026 · tgl ${tgl(k.tgl_surat_tugas)} ${boleh('ADMIN', 'OPERATOR') ? '<button id="b-urut">Simpan no. urut</button>' : ''}</dd>
+  <dt>Surat tugas</dt><dd>${k.kode_surat_tugas ? esc(k.kode_surat_tugas) + '/' : ''}<input id="urut" value="${esc(k.no_surat_tugas_urut || '')}" placeholder="no. urut" style="width:90px">/${String(k.tgl_surat_tugas || k.tgl_berangkat).slice(0, 4)} · tgl ${tgl(k.tgl_surat_tugas)} ${boleh('ADMIN', 'OPERATOR') ? '<button id="b-urut">Simpan no. urut</button>' : ''}</dd>
   <dt>Tanggal SPJ</dt><dd>${tgl(k.tgl_spj)}</dd>
   ${pej ? `<dt>Pejabat (SPD)</dt><dd>${pej}</dd>` : ''}</dl></div>
   <div class="card tbl"><h2 style="margin-top:0">Peserta dan biaya</h2><table><thead><tr><th class="n">#</th><th>Nama</th><th>Gol/Eselon</th><th class="n">No SPD</th><th class="n">Tarif</th><th class="n">Lembur</th><th class="n">Harian</th><th class="n">Transport</th><th class="n">Inap</th><th class="n">Kontribusi</th><th class="n">Representasi</th><th class="n">Jumlah</th></tr></thead><tbody>
