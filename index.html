@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPPD Prokompim Setda Batang</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#657080;--line:#e2e6ec;--pri:#1d5fd1;--pri-ink:#fff;--ok:#16794a;--warn:#a15c07;--bad:#b3261e;--chip:#eef2f8}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b212a;--ink:#e8ecf2;--mut:#9aa6b6;--line:#2b3441;--pri:#5b9bff;--pri-ink:#0b1220;--ok:#4cc38a;--warn:#e6a23c;--bad:#ff7b72;--chip:#252d39}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--pri);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.bar{max-width:1280px;margin:0 auto;padding:10px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:700}.brand small{display:block;font-weight:400;color:var(--mut);font-size:12px}
+nav{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+nav a{padding:6px 12px;border-radius:8px;color:var(--ink)}nav a.on{background:var(--chip);font-weight:600}
+.who{color:var(--mut);font-size:13px;text-align:right}
+main{max-width:1280px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 12px}h2{font-size:16px;margin:20px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0}
+input[type=checkbox]{width:auto}
+textarea{width:100%;min-height:60px}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 13px;cursor:pointer;display:inline-block}
+button:hover{border-color:var(--pri)}button.pri{background:var(--pri);color:var(--pri-ink);border-color:var(--pri);font-weight:600}
+button.bad{color:var(--bad)}button:disabled{opacity:.5;cursor:default}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--mut);font-weight:600;white-space:nowrap}
+td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.klik{cursor:pointer}tr.klik:hover{background:var(--chip)}
+.tbl{overflow-x:auto}
+.badge{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--chip)}
+.s-DRAFT{color:var(--mut)}.s-DIAJUKAN{color:var(--warn)}.s-DIKEMBALIKAN{color:var(--bad)}.s-TERVERIFIKASI{color:var(--pri)}.s-DICETAK{color:var(--pri)}.s-DICAIRKAN{color:var(--ok)}
+.warn{background:color-mix(in srgb,var(--warn) 14%,transparent);border:1px solid var(--warn);border-radius:8px;padding:8px 12px;margin:8px 0}
+.err{background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid var(--bad);border-radius:8px;padding:8px 12px;margin:8px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:4px 12px}.kv dt{color:var(--mut)}.kv dd{margin:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{background:var(--chip);border-radius:99px;padding:2px 4px 2px 10px;display:inline-flex;gap:4px;align-items:center}
+.chip button{border:0;background:none;padding:0 6px;color:var(--mut)}
+.mut{color:var(--mut)}.tot td{font-weight:700;border-top:2px solid var(--line)}
+.tab{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}.tab button.on{background:var(--chip);font-weight:600}
+#toast{position:fixed;right:16px;bottom:16px;max-width:420px;z-index:20;display:flex;flex-direction:column;gap:8px}
+#toast div{background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px}
+#toast div.e{background:var(--bad);color:#fff}
+.login{max-width:360px;margin:12vh auto}
+.pes input[type=number]{width:96px}
+.sug{border:1px solid var(--line);border-radius:8px;max-height:200px;overflow:auto;background:var(--card)}
+.sug div{padding:6px 10px;cursor:pointer}.sug div:hover{background:var(--chip)}
+@media (max-width:640px){.kv{grid-template-columns:1fr}.kv dt{margin-top:6px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script>
+// ======================= Konfigurasi =======================
+const SUPABASE_URL = 'https://ipqhujlwwxfftpkkecec.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Io0tuyl8Q7PdMepd_k21uw_O39Z1l-D';
+const db = (window.__DB_MOCK__) || supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ======================= Util =======================
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rp = n => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+const BLN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const tgl = d => { if (!d) return '–'; const [y, m, dd] = String(d).slice(0, 10).split('-'); return `${+dd} ${BLN[+m - 1].slice(0, 3)} ${y}`; };
+const STATUS = {DRAFT:'Draft',DIAJUKAN:'Diajukan',DIKEMBALIKAN:'Dikembalikan',TERVERIFIKASI:'Terverifikasi',DICETAK:'Dicetak',DICAIRKAN:'Dicairkan'};
+const badge = s => `<span class="badge s-${s}">${STATUS[s] || s}</span>`;
+function toast(msg, err) { const d = document.createElement('div'); if (err) d.className = 'e'; d.textContent = msg; $('#toast').append(d); setTimeout(() => d.remove(), err ? 9000 : 3500); }
+function galat(e) { toast((e && (e.message || e.details)) || String(e), true); console.error(e); }
+async function q(p) { const r = await p; if (r.error) throw r.error; return r.data; }
+async function aksi(fn, ok) { try { const r = await fn(); if (ok) toast(ok); return r; } catch (e) { galat(e); return undefined; } }
+
+const S = { user: null, profil: null, master: null, tahun: new Date().getFullYear(), filter: { status: '', sub: '', bulan: '', cari: '' }, cache: {} };
+const peran = () => S.profil?.peran;
+const boleh = (...p) => p.includes(peran());
+
+// ======================= Master data =======================
+async function muatMaster() {
+  const [sub, kend, tuj, peg, riw, pej] = await Promise.all([
+    q(db.from('sub_bagian').select('id,kode,nama').order('id')),
+    q(db.from('kendaraan').select('id,jenis,nopol').order('id')),
+    q(db.from('tujuan').select('id,nama,tingkat,kode_dn,provinsi,aktif').order('nama')),
+    q(db.from('pegawai').select('id,jenis,nip,aktif').order('id')),
+    q(db.from('pegawai_riwayat').select('id,pegawai_id,nama_lengkap,golongan,jabatan,eselon,is_kabag,berlaku_dari,berlaku_sampai').order('berlaku_dari')),
+    q(db.from('pejabat').select('id,peran,pegawai_id,sub_bagian_id,jabatan_label,berlaku_dari,berlaku_sampai').order('id'))
+  ]);
+  const terakhir = {}; riw.forEach(r => { terakhir[r.pegawai_id] = r; });
+  peg.forEach(p => { p.riwayat = terakhir[p.id]; p.nama = terakhir[p.id]?.nama_lengkap || '(tanpa data)'; });
+  S.master = { sub, kend, tuj, peg, riw, pej, sub_by: Object.fromEntries(sub.map(s => [s.id, s])), peg_by: Object.fromEntries(peg.map(p => [p.id, p])) };
+}
+
+// ======================= Auth & kerangka =======================
+async function mulai() {
+  const { data } = await db.auth.getSession();
+  S.user = data.session?.user || null;
+  db.auth.onAuthStateChange((_e, ses) => { const baru = ses?.user || null; if ((baru?.id) !== (S.user?.id)) { S.user = baru; mulai2(); } });
+  await mulai2();
+}
+async function mulai2() {
+  if (!S.user) return tampilLogin();
+  try {
+    const rows = await q(db.from('pengguna').select('id,nama,peran,pegawai_id,aktif').eq('id', S.user.id));
+    S.profil = rows[0] && rows[0].aktif ? rows[0] : null;
+    if (!S.profil) return tampilTanpaAkses();
+    await muatMaster();
+  } catch (e) { galat(e); return tampilTanpaAkses(); }
+  window.addEventListener('hashchange', rute);
+  rute();
+}
+function tampilLogin() {
+  $('#app').innerHTML = `<div class="login card"><h1>SPPD Prokompim</h1><p class="mut">Bagian Prokompim Setda Kabupaten Batang</p>
+  <form id="f"><label>Email</label><input id="em" type="email" required style="width:100%"><br><br>
+  <label>Kata sandi</label><input id="pw" type="password" required style="width:100%"><br><br>
+  <button class="pri" style="width:100%">Masuk</button></form></div>`;
+  $('#f').onsubmit = async ev => { ev.preventDefault(); const { error } = await db.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value }); if (error) galat({ message: 'Email atau kata sandi salah.' }); };
+}
+function tampilTanpaAkses() {
+  $('#app').innerHTML = `<div class="login card"><h1>Akun belum terdaftar</h1><p>Akun Anda belum dihubungkan dengan peran di aplikasi atau sudah dinonaktifkan. Hubungi admin.</p><button id="out">Keluar</button></div>`;
+  $('#out').onclick = () => db.auth.signOut();
+}
+function kerangka(aktif, isi) {
+  const m = [['kegiatan', 'Kegiatan'], ['rekap', 'Rekap'], ['periksa', 'Pemeriksaan'], ['master', 'Master data']];
+  $('#app').innerHTML = `<header><div class="bar"><div class="brand">SPPD Prokompim<small>Setda Kabupaten Batang</small></div>
+  <nav>${m.map(([h, t]) => `<a href="#/${h}" class="${aktif === h ? 'on' : ''}">${t}</a>`).join('')}</nav>
+  <div class="who">${esc(S.profil.nama)}<br>${esc(S.profil.peran)} · <a href="#" id="out">Keluar</a></div></div></header><main>${isi}</main>`;
+  $('#out').onclick = e => { e.preventDefault(); db.auth.signOut(); };
+}
+function rute() {
+  const h = location.hash.replace(/^#\/?/, '').split('/');
+  const [a, b] = h;
+  if (!a || a === 'kegiatan' && !b) return halDaftar();
+  if (a === 'kegiatan') return halDetail(+b);
+  if (a === 'baru') return halForm(null);
+  if (a === 'ubah') return halForm(+b);
+  if (a === 'rekap') return halRekap();
+  if (a === 'periksa') return halPeriksa();
+  if (a === 'master') return halMaster(b || 'pegawai');
+  halDaftar();
+}
+
+// ======================= Daftar kegiatan =======================
+async function halDaftar() {
+  kerangka('kegiatan', `<div class="row" style="justify-content:space-between"><h1>Kegiatan</h1>${boleh('ADMIN', 'OPERATOR') ? '<a class="btn pri" href="#/baru">+ Kegiatan baru</a>' : ''}</div><div id="isi" class="mut">Memuat…</div>`);
+  const tahun = S.tahun;
+  let rows;
+  try {
+    rows = await q(db.from('kegiatan').select('id,jenis,acara,kode_dn,tgl_berangkat,tgl_kembali,lama_hari,status,tgl_spj,sub_bagian_id,kegiatan_tujuan(urutan,tujuan(nama)),peserta(jumlah,urutan,nama_cetak,pengikut)').eq('tahun', tahun).order('tgl_berangkat', { ascending: false }).order('id', { ascending: false }).limit(1000));
+  } catch (e) { return galat(e); }
+  S.cache.daftar = rows;
+  const f = S.filter;
+  const draw = () => {
+    const cari = f.cari.toLowerCase();
+    const hasil = rows.filter(r => (!f.status || r.status === f.status) && (!f.sub || r.sub_bagian_id == f.sub) && (!f.bulan || +r.tgl_berangkat.slice(5, 7) === +f.bulan) &&
+      (!cari || (r.acara + ' ' + r.kegiatan_tujuan.map(k => k.tujuan.nama).join(' ') + ' ' + r.peserta.map(p => p.nama_cetak).join(' ')).toLowerCase().includes(cari)));
+    const total = hasil.reduce((a, r) => a + r.peserta.reduce((b, p) => b + Number(p.jumlah || 0), 0), 0);
+    $('#tb').innerHTML = hasil.map(r => {
+      const tj = [...r.kegiatan_tujuan].sort((a, b) => a.urutan - b.urutan).map(k => k.tujuan.nama).join(', ');
+      const jml = r.peserta.reduce((b, p) => b + Number(p.jumlah || 0), 0);
+      return `<tr class="klik" data-id="${r.id}"><td class="n">${r.id}</td><td>${tgl(r.tgl_berangkat)}${r.lama_hari > 1 ? ' – ' + tgl(r.tgl_kembali) : ''}</td><td>${esc(r.acara).slice(0, 110)}${r.acara.length > 110 ? '…' : ''}</td><td>${esc(tj)}</td><td>${r.kode_dn || ''}</td><td>${esc(S.master.sub_by[r.sub_bagian_id]?.kode || '')}</td><td class="n">${r.peserta.length}</td><td class="n">${rp(jml)}</td><td>${badge(r.status)}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="mut">Tidak ada kegiatan.</td></tr>';
+    $('#ringkas').textContent = `${hasil.length} kegiatan · total ${rp(total)}`;
+    $('#tb').querySelectorAll('tr.klik').forEach(tr => tr.onclick = () => location.hash = '#/kegiatan/' + tr.dataset.id);
+  };
+  $('#isi').className = '';
+  $('#isi').innerHTML = `<div class="card"><div class="row">
+    <div><label>Tahun</label><select id="ft">${[tahun - 1, tahun, tahun + 1].map(t => `<option ${t === tahun ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+    <div><label>Bulan</label><select id="fb"><option value="">Semua</option>${BLN.map((b, i) => `<option value="${i + 1}" ${f.bulan == i + 1 ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
+    <div><label>Status</label><select id="fs"><option value="">Semua</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${f.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+    <div><label>Subbagian</label><select id="fu"><option value="">Semua</option>${S.master.sub.map(s => `<option value="${s.id}" ${f.sub == s.id ? 'selected' : ''}>${esc(s.kode)}</option>`).join('')}</select></div>
+    <div style="flex:1;min-width:200px"><label>Cari (acara, tujuan, nama)</label><input id="fc" style="width:100%" value="${esc(f.cari)}"></div></div>
+    <p id="ringkas" class="mut" style="margin:10px 0 0"></p></div>
+    <div class="card tbl"><table><thead><tr><th class="n">ID</th><th>Tanggal</th><th>Acara</th><th>Tujuan</th><th>D/L</th><th>Subbag</th><th class="n">Peserta</th><th class="n">Jumlah</th><th>Status</th></tr></thead><tbody id="tb"></tbody></table></div>`;
+  $('#ft').onchange = e => { S.tahun = +e.target.value; halDaftar(); };
+  $('#fb').onchange = e => { f.bulan = e.target.value; draw(); };
+  $('#fs').onchange = e => { f.status = e.target.value; draw(); };
+  $('#fu').onchange = e => { f.sub = e.target.value; draw(); };
+  $('#fc').oninput = e => { f.cari = e.target.value; draw(); };
+  draw();
+}
+
+// ======================= Detail kegiatan =======================
+async function halDetail(id) {
+  kerangka('kegiatan', '<div class="mut">Memuat…</div>');
+  let k, ps, warn = [];
+  try {
+    k = (await q(db.from('kegiatan').select('*,kegiatan_tujuan(urutan,tujuan(id,nama,kode_dn)),persetujuan(tahap,keputusan,catatan,waktu,peran),riwayat_cetak(dokumen,waktu)').eq('id', id)))[0];
+    if (!k) { $('main').innerHTML = '<div class="card">Kegiatan tidak ditemukan. <a href="#/kegiatan">Kembali</a></div>'; return; }
+    ps = await q(db.from('peserta').select('*').eq('kegiatan_id', id).order('urutan'));
+    warn = await q(db.rpc('peringatan_kegiatan', { p_id: id })) || [];
+  } catch (e) { return galat(e); }
+  const tj = [...k.kegiatan_tujuan].sort((a, b) => a.urutan - b.urutan).map(x => x.tujuan.nama).join(', ');
+  const tot = ps.reduce((a, p) => ({ h: a.h + +p.harian, t: a.t + +p.transport, i: a.i + +p.inap, k: a.k + +p.kontribusi, r: a.r + +p.representasi, j: a.j + +p.jumlah }), { h: 0, t: 0, i: 0, k: 0, r: 0, j: 0 });
+  const edit = ['DRAFT', 'DIKEMBALIKAN'].includes(k.status);
+  const kend = S.master.kend.find(x => x.id === k.kendaraan_id);
+  const tombol = [];
+  if (boleh('ADMIN', 'OPERATOR')) {
+    if (edit) tombol.push(`<a class="btn" href="#/ubah/${id}">Ubah</a>`);
+    if (edit && !k.dibekukan_pada) tombol.push('<button id="b-hitung">Hitung ulang</button>');
+    if (edit && k.jenis === 'SPPD') tombol.push('<button class="pri" id="b-ajukan">Ajukan untuk verifikasi</button>');
+    if (k.status === 'DRAFT' && !ps.some(p => p.no_spd)) tombol.push('<button class="bad" id="b-hapus">Hapus</button>');
+    if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status)) tombol.push('<button id="b-revisi">Revisi…</button>');
+  }
+  if (k.status === 'DIAJUKAN' && boleh('PPTK', 'BENDAHARA')) tombol.push('<button class="pri" id="b-verif">Verifikasi</button><button class="bad" id="b-kembali">Kembalikan…</button>');
+  if (['TERVERIFIKASI', 'DICETAK'].includes(k.status) && boleh('ADMIN', 'OPERATOR', 'BENDAHARA')) tombol.push('<button id="b-spj">Isi tanggal SPJ</button>');
+  if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status) && boleh('ADMIN') && !k.tgl_spj) tombol.push('<button id="b-spjk">Koreksi tanggal SPJ (admin)</button>');
+  if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status) && boleh('ADMIN', 'OPERATOR', 'BENDAHARA')) tombol.push('<button id="b-cetak">Catat pencetakan…</button>');
+  if (k.status === 'DICETAK' && boleh('BENDAHARA')) tombol.push('<button class="pri" id="b-cair">Tandai dicairkan</button>');
+  const pej = k.pejabat_spd ? ['KPA', 'PPTK', 'BENDAHARA'].map(r => k.pejabat_spd[r] ? `${r}: ${esc(k.pejabat_spd[r].nama)}` : '').filter(Boolean).join(' · ') : '';
+  $('main').innerHTML = `<p><a href="#/kegiatan">← Daftar kegiatan</a></p>
+  <div class="card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h1 style="margin-bottom:4px">${esc(k.acara)}</h1>${badge(k.status)} ${k.dalam_revisi ? '<span class="badge">Dalam revisi</span>' : ''} <span class="mut">ID ${k.id} · ${k.jenis === 'SPPD' ? 'SPPD' : 'Surat tugas saja'}</span></div><div class="row">${tombol.join(' ')}</div></div>
+  ${warn.length ? `<div class="warn"><b>Perlu diperiksa:</b><ul style="margin:4px 0 0 18px;padding:0">${warn.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+  <dl class="kv" style="margin-top:12px"><dt>Tanggal</dt><dd>${tgl(k.tgl_berangkat)}${k.lama_hari > 1 ? ' – ' + tgl(k.tgl_kembali) : ''} (${k.lama_hari} hari)${k.jam_mulai ? ' · ' + k.jam_mulai.slice(0, 5) + ' – ' + (k.jam_selesai ? k.jam_selesai.slice(0, 5) : 'selesai') : ''}</dd>
+  <dt>Tujuan</dt><dd>${esc(tj) || '–'} ${k.kode_dn ? `<span class="badge">${k.kode_dn === 'D' ? 'Dalam daerah' : 'Luar daerah'}</span>` : ''} ${k.is_lembur ? '<span class="badge">Lembur +</span>' : ''}</dd>
+  <dt>Subbagian</dt><dd>${esc(S.master.sub_by[k.sub_bagian_id]?.nama || '')}</dd>
+  <dt>Kendaraan</dt><dd>${kend ? esc(kend.jenis + ', ' + kend.nopol) : '–'}</dd>
+  <dt>Tempat (surat)</dt><dd>${esc(k.tempat_surat) || '–'}</dd>
+  <dt>Dasar penugasan</dt><dd>${esc(k.dasar_penugasan) || '–'}</dd>
+  <dt>Surat tugas</dt><dd>${k.kode_surat_tugas ? esc(k.kode_surat_tugas) + '/' : ''}<input id="urut" value="${esc(k.no_surat_tugas_urut || '')}" placeholder="no. urut" style="width:90px">/2026 · tgl ${tgl(k.tgl_surat_tugas)} ${boleh('ADMIN', 'OPERATOR') ? '<button id="b-urut">Simpan no. urut</button>' : ''}</dd>
+  <dt>Tanggal SPJ</dt><dd>${tgl(k.tgl_spj)}</dd>
+  ${pej ? `<dt>Pejabat (SPD)</dt><dd>${pej}</dd>` : ''}</dl></div>
+  <div class="card tbl"><h2 style="margin-top:0">Peserta dan biaya</h2><table><thead><tr><th class="n">#</th><th>Nama</th><th>Gol/Eselon</th><th class="n">No SPD</th><th class="n">Tarif</th><th class="n">Lembur</th><th class="n">Harian</th><th class="n">Transport</th><th class="n">Inap</th><th class="n">Kontribusi</th><th class="n">Representasi</th><th class="n">Jumlah</th></tr></thead><tbody>
+  ${ps.map(p => `<tr><td class="n">${p.urutan}</td><td>${esc(p.nama_cetak || S.master.peg_by[p.pegawai_id]?.nama)}${p.pengikut ? ' <span class="badge">pengikut</span>' : ''}</td><td>${esc(p.golongan_cetak || '')} ${p.eselon_cetak ? '/ ' + p.eselon_cetak : ''}</td><td class="n">${p.no_spd ? p.no_spd + '/' + p.tahun_spd : ''}</td><td class="n">${rp(p.tarif_dasar)}</td><td class="n">${p.tambahan_lembur > 0 ? rp(p.tambahan_lembur) : ''}</td><td class="n">${rp(p.harian)}</td><td class="n">${rp(p.transport)}</td><td class="n">${rp(p.inap)}</td><td class="n">${rp(p.kontribusi)}</td><td class="n">${rp(p.representasi)}</td><td class="n"><b>${rp(p.jumlah)}</b></td></tr>`).join('')}
+  <tr class="tot"><td></td><td colspan="5">Total</td><td class="n">${rp(tot.h)}</td><td class="n">${rp(tot.t)}</td><td class="n">${rp(tot.i)}</td><td class="n">${rp(tot.k)}</td><td class="n">${rp(tot.r)}</td><td class="n">${rp(tot.j)}</td></tr></tbody></table></div>
+  <div class="card"><h2 style="margin-top:0">Riwayat</h2>${[...k.persetujuan.map(x => ({ w: x.waktu, t: `${x.tahap === 'REVISI' ? 'Revisi' : x.keputusan === 'SETUJU' ? 'Diverifikasi' : 'Dikembalikan'} (${x.peran || ''})${x.catatan ? ': ' + x.catatan : ''}` })), ...k.riwayat_cetak.map(x => ({ w: x.waktu, t: 'Dokumen dicatat tercetak: ' + x.dokumen }))].sort((a, b) => String(a.w).localeCompare(String(b.w))).map(x => `<div><span class="mut">${esc(String(x.w).slice(0, 16).replace('T', ' '))}</span> ${esc(x.t)}</div>`).join('') || '<span class="mut">Belum ada.</span>'}</div>`;
+
+  const jalan = (fn, ok) => async () => { const r = await aksi(fn, ok); if (r !== undefined) halDetail(id); };
+  const on = (sel, fn) => { const e = $(sel); if (e) e.onclick = fn; };
+  on('#b-hitung', jalan(() => q(db.rpc('hitung_kegiatan', { p_id: id })), 'Biaya dihitung ulang'));
+  on('#b-ajukan', jalan(() => q(db.rpc('ajukan_kegiatan', { p_id: id })), 'Diajukan untuk verifikasi'));
+  on('#b-verif', async () => { const c = prompt('Catatan verifikasi (boleh kosong):', ''); if (c === null) return; jalan(() => q(db.rpc('verifikasi_kegiatan', { p_id: id, p_catatan: c || null })), 'Terverifikasi')(); });
+  on('#b-kembali', async () => { const c = prompt('Alasan dikembalikan (wajib):'); if (!c) return; jalan(() => q(db.rpc('kembalikan_kegiatan', { p_id: id, p_catatan: c })), 'Dikembalikan ke operator')(); });
+  on('#b-revisi', async () => { const c = prompt('Alasan revisi (wajib). Data pegawai, tarif, dan pejabat tetap beku:'); if (!c) return; jalan(() => q(db.rpc('revisi_kegiatan', { p_id: id, p_alasan: c })), 'Dibuka untuk revisi')(); });
+  on('#b-spj', async () => { const d = prompt('Tanggal SPJ (YYYY-MM-DD):', k.tgl_spj || ''); if (!d) return; jalan(() => q(db.rpc('set_tgl_spj', { p_id: id, p_tgl: d })), 'Tanggal SPJ disimpan')(); });
+  on('#b-spjk', async () => { const d = prompt('Tanggal SPJ (YYYY-MM-DD):', k.tgl_kembali); if (!d) return; jalan(() => q(db.rpc('isi_tgl_spj_koreksi', { p_id: id, p_tgl: d })), 'Tanggal SPJ dikoreksi')(); });
+  on('#b-cetak', async () => { const d = prompt('Dokumen yang dicetak: SPD, KUITANSI, RPD, REKAP_RPD, SURAT_TUGAS, NOTA_DINAS', 'SPD'); if (!d) return; jalan(() => q(db.rpc('tandai_dicetak', { p_id: id, p_dokumen: d.trim().toUpperCase() })), 'Pencetakan dicatat')(); });
+  on('#b-cair', jalan(() => q(db.rpc('tandai_dicairkan', { p_id: id })), 'Ditandai dicairkan'));
+  on('#b-urut', jalan(() => q(db.from('kegiatan').update({ no_surat_tugas_urut: $('#urut').value.trim() || null }).eq('id', id)), 'Nomor urut disimpan'));
+  on('#b-hapus', async () => { if (!confirm('Hapus kegiatan Draft ini?')) return; const r = await aksi(() => q(db.from('kegiatan').delete().eq('id', id)), 'Dihapus'); if (r !== undefined) location.hash = '#/kegiatan'; });
+}
+
+// ======================= Formulir =======================
+async function halForm(id) {
+  kerangka('kegiatan', '<div class="mut">Memuat…</div>');
+  if (!boleh('ADMIN', 'OPERATOR')) { $('main').innerHTML = '<div class="card">Anda tidak punya hak mengubah kegiatan.</div>'; return; }
+  let k = { jenis: 'SPPD', acara: '', tempat_surat: '', tgl_berangkat: '', tgl_kembali: '', jam_mulai: '08:00', jam_selesai: '', is_lembur: false, kendaraan_id: S.master.kend[0]?.id || '', sub_bagian_id: S.master.sub[0]?.id, dasar_penugasan: '', tgl_surat_tugas: '', no_surat_tugas_urut: '' };
+  let tuj = [], peserta = [];
+  if (id) {
+    try {
+      k = (await q(db.from('kegiatan').select('*').eq('id', id)))[0];
+      if (!k || !['DRAFT', 'DIKEMBALIKAN'].includes(k.status)) { $('main').innerHTML = '<div class="card">Kegiatan ini tidak dapat diubah. <a href="#/kegiatan/' + id + '">Kembali</a></div>'; return; }
+      tuj = (await q(db.from('kegiatan_tujuan').select('urutan,tujuan_id').eq('kegiatan_id', id).order('urutan'))).map(x => x.tujuan_id);
+      peserta = (await q(db.from('peserta').select('pegawai_id,pengikut,transport,inap,kontribusi,representasi').eq('kegiatan_id', id).order('urutan'))).map(p => ({ ...p }));
+    } catch (e) { return galat(e); }
+  }
+  const beku = !!k.dibekukan_pada;
+  const M = S.master;
+  const dis = beku ? 'disabled' : '';
+  $('main').innerHTML = `<p><a href="${id ? '#/kegiatan/' + id : '#/kegiatan'}">← Batal</a></p><h1>${id ? 'Ubah kegiatan #' + id : 'Kegiatan baru'}</h1>
+  ${beku ? '<div class="warn">Kegiatan ini sudah dibekukan (revisi). Hanya acara, jam, kendaraan, dasar penugasan, no. urut surat tugas, dan biaya manual yang dapat diubah.</div>' : ''}
+  <div class="card"><div class="grid">
+   <div><label>Jenis</label><select id="jenis" ${dis}><option value="SPPD" ${k.jenis === 'SPPD' ? 'selected' : ''}>SPPD (dengan biaya)</option><option value="SURAT_TUGAS_SAJA" ${k.jenis !== 'SPPD' ? 'selected' : ''}>Surat tugas saja</option></select></div>
+   <div><label>Subbagian</label><select id="sub" ${dis}>${M.sub.map(s => `<option value="${s.id}" ${s.id == k.sub_bagian_id ? 'selected' : ''}>${esc(s.nama)}</option>`).join('')}</select></div>
+   <div><label>Tanggal berangkat</label><input type="date" id="tb" value="${k.tgl_berangkat || ''}" ${dis}></div>
+   <div><label>Tanggal kembali</label><input type="date" id="tk" value="${k.tgl_kembali || ''}" ${dis}></div>
+   <div><label>Jam mulai</label><input type="time" id="jm" value="${(k.jam_mulai || '').slice(0, 5)}"></div>
+   <div><label>Jam selesai (kosong = selesai)</label><input type="time" id="js" value="${(k.jam_selesai || '').slice(0, 5)}"></div>
+   <div><label>Kendaraan</label><select id="kend"><option value="">–</option>${M.kend.map(v => `<option value="${v.id}" ${v.id == k.kendaraan_id ? 'selected' : ''}>${esc(v.jenis + ', ' + v.nopol)}</option>`).join('')}</select></div>
+   <div><label>Tanggal surat tugas (kosong = tgl berangkat)</label><input type="date" id="tst" value="${k.tgl_surat_tugas || ''}"></div>
+   <div><label>No. urut surat tugas</label><input id="urut" value="${esc(k.no_surat_tugas_urut || '')}"></div>
+   <div><label>&nbsp;</label><label style="color:var(--ink);font-size:14px"><input type="checkbox" id="lembur" ${k.is_lembur ? 'checked' : ''} ${dis}> Lembur (hanya dalam daerah)</label></div>
+  </div><br><label>Acara / uraian tugas</label><textarea id="acara">${esc(k.acara)}</textarea>
+  <label>Tempat untuk surat (opsional)</label><input id="tempat" style="width:100%" value="${esc(k.tempat_surat || '')}">
+  <label style="margin-top:8px">Dasar penugasan (opsional)</label><input id="dasar" style="width:100%" value="${esc(k.dasar_penugasan || '')}"></div>
+  <div class="card"><h2 style="margin-top:0">Tujuan</h2>${beku ? '<span class="mut">Dibekukan.</span>' : '<input id="tcari" placeholder="Ketik nama kota/kecamatan…" style="width:280px"><div id="tsug"></div>'}<div class="chips" id="tchips"></div><p class="mut" style="margin:8px 0 0">Tarif yang dipakai: tujuan dengan tarif tertinggi. Kode D/L dihitung otomatis.</p></div>
+  <div class="card tbl pes"><h2 style="margin-top:0">Peserta <span class="mut" style="font-weight:400">(urutan 1 = penandatangan utama; Kabag di urutan 1 memakai kode surat 100.3.5.4)</span></h2>
+   ${beku ? '' : '<div class="row"><div><label>Tambah peserta</label><select id="padd"></select></div><button id="bpadd">Tambah</button></div><br>'}
+   <table><thead><tr><th>#</th><th>Nama</th><th>Pengikut</th><th>Transport</th><th>Inap</th><th>Kontribusi</th><th>Representasi</th><th></th></tr></thead><tbody id="ptb"></tbody></table></div>
+  <div class="row"><button class="pri" id="simpan">Simpan</button><span class="mut">Setelah disimpan biaya dihitung otomatis. Pengajuan dilakukan dari halaman detail.</span></div>`;
+
+  const drawT = () => {
+    $('#tchips').innerHTML = tuj.map(t => `<span class="chip">${esc(M.tuj.find(x => x.id === t)?.nama || t)}${beku ? '' : `<button data-t="${t}" title="Hapus">×</button>`}</span>`).join('') || '<span class="mut">Belum ada tujuan.</span>';
+    $('#tchips').querySelectorAll('button').forEach(b => b.onclick = () => { tuj = tuj.filter(x => x != b.dataset.t); drawT(); });
+  };
+  const drawP = () => {
+    $('#ptb').innerHTML = peserta.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(M.peg_by[p.pegawai_id]?.nama)}</td>
+     <td><input type="checkbox" data-i="${i}" data-f="pengikut" ${p.pengikut ? 'checked' : ''} ${dis}></td>
+     ${['transport', 'inap', 'kontribusi', 'representasi'].map(f => `<td><input type="number" min="0" step="1000" data-i="${i}" data-f="${f}" value="${p[f] || 0}"></td>`).join('')}
+     <td>${beku ? '' : `<button data-i="${i}" data-a="up">↑</button><button data-i="${i}" data-a="dn">↓</button><button class="bad" data-i="${i}" data-a="del">×</button>`}</td></tr>`).join('') || '<tr><td colspan="8" class="mut">Belum ada peserta.</td></tr>';
+    $('#ptb').querySelectorAll('input').forEach(inp => inp.onchange = () => { const p = peserta[+inp.dataset.i]; p[inp.dataset.f] = inp.type === 'checkbox' ? inp.checked : +inp.value; });
+    $('#ptb').querySelectorAll('button').forEach(b => b.onclick = () => { const i = +b.dataset.i, a = b.dataset.a;
+      if (a === 'del') peserta.splice(i, 1);
+      else { const j = a === 'up' ? i - 1 : i + 1; if (j < 0 || j >= peserta.length) return; [peserta[i], peserta[j]] = [peserta[j], peserta[i]]; }
+      drawP(); drawAdd(); });
+  };
+  const drawAdd = () => { const el = $('#padd'); if (!el) return; const pakai = new Set(peserta.map(p => p.pegawai_id));
+    el.innerHTML = M.peg.filter(p => p.aktif && !pakai.has(p.id)).map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join(''); };
+  if (!beku) {
+    $('#tcari').oninput = e => { const v = e.target.value.toLowerCase().trim();
+      const h = v ? M.tuj.filter(t => t.aktif && !tuj.includes(t.id) && t.nama.toLowerCase().includes(v)).slice(0, 12) : [];
+      $('#tsug').innerHTML = h.length ? `<div class="sug">${h.map(t => `<div data-t="${t.id}">${esc(t.nama)} <span class="mut">${t.tingkat === 'KECAMATAN' ? 'kecamatan' : t.provinsi || ''} · ${t.kode_dn}</span></div>`).join('')}</div>` : '';
+      $('#tsug').querySelectorAll('div[data-t]').forEach(d => d.onclick = () => { tuj.push(+d.dataset.t); $('#tcari').value = ''; $('#tsug').innerHTML = ''; drawT(); }); };
+    $('#bpadd').onclick = () => { const v = +$('#padd').value; if (!v) return; peserta.push({ pegawai_id: v, pengikut: false, transport: 0, inap: 0, kontribusi: 0, representasi: 0 }); drawP(); drawAdd(); };
+  }
+  drawT(); drawP(); drawAdd();
+  $('#simpan').onclick = async () => {
+    const d = { id: id || null, jenis: $('#jenis').value, acara: $('#acara').value.trim(), tempat_surat: $('#tempat').value.trim(), tgl_berangkat: $('#tb').value, tgl_kembali: $('#tk').value || $('#tb').value,
+      jam_mulai: $('#jm').value, jam_selesai: $('#js').value, is_lembur: $('#lembur').checked, kendaraan_id: $('#kend').value || null, sub_bagian_id: +$('#sub').value,
+      dasar_penugasan: $('#dasar').value.trim(), tgl_surat_tugas: $('#tst').value, no_surat_tugas_urut: $('#urut').value.trim(), tujuan: tuj, peserta };
+    if (!d.acara) return toast('Acara wajib diisi.', true);
+    if (!d.tgl_berangkat) return toast('Tanggal berangkat wajib diisi.', true);
+    if (d.tgl_kembali < d.tgl_berangkat) return toast('Tanggal kembali tidak boleh sebelum berangkat.', true);
+    $('#simpan').disabled = true;
+    const r = await aksi(() => q(db.rpc('simpan_kegiatan', { p_data: d })));
+    $('#simpan').disabled = false;
+    if (!r) return;
+    toast('Tersimpan.');
+    if (r.peringatan) toast('Catatan: ' + r.peringatan, true);
+    location.hash = '#/kegiatan/' + r.id;
+  };
+}
+
+// ======================= Rekap =======================
+async function halRekap() {
+  kerangka('rekap', `<h1>Rekap ${S.tahun}</h1><div id="isi" class="mut">Memuat…</div>`);
+  let b, p;
+  try {
+    b = await q(db.from('v_rekap_bulanan').select('*').eq('tahun', S.tahun));
+    p = await q(db.from('v_rekap_peserta').select('kegiatan_id,nama_cetak,kode_dn,lama_hari,harian,transport,inap,kontribusi,representasi,jumlah,status').eq('tahun', S.tahun).limit(5000));
+  } catch (e) { return galat(e); }
+  const perBulan = {};
+  b.forEach(r => { const m = +r.bulan.slice(5, 7); const o = perBulan[m] ||= { D: 0, L: 0, kd: 0, kl: 0, tot: 0, harian: 0 }; o[r.kode_dn || 'D'] += +r.total; if (r.kode_dn === 'L') o.kl += +r.jumlah_kegiatan; else o.kd += +r.jumlah_kegiatan; o.tot += +r.total; o.harian += +r.total_harian; });
+  const per = {};
+  p.forEach(r => { const o = per[r.nama_cetak.replace(/,.*$/, '').trim()] ||= { n: 0, h: 0, t: 0, j: 0 }; o.n++; o.h += +r.harian; o.t += +r.transport + +r.inap + +r.kontribusi + +r.representasi; o.j += +r.jumlah; });
+  const all = Object.values(perBulan).reduce((a, o) => a + o.tot, 0);
+  $('#isi').className = '';
+  $('#isi').innerHTML = `<div class="card tbl"><h2 style="margin-top:0">Per bulan</h2><table><thead><tr><th>Bulan</th><th class="n">Keg. dalam daerah</th><th class="n">Keg. luar daerah</th><th class="n">Total dalam daerah</th><th class="n">Total luar daerah</th><th class="n">Total</th></tr></thead><tbody>
+   ${Object.keys(perBulan).sort((a, c) => a - c).map(m => { const o = perBulan[m]; return `<tr><td>${BLN[m - 1]}</td><td class="n">${o.kd}</td><td class="n">${o.kl}</td><td class="n">${rp(o.D)}</td><td class="n">${rp(o.L)}</td><td class="n"><b>${rp(o.tot)}</b></td></tr>`; }).join('')}
+   <tr class="tot"><td colspan="5">Total ${S.tahun}</td><td class="n">${rp(all)}</td></tr></tbody></table></div>
+   <div class="card tbl"><h2 style="margin-top:0">Per pegawai</h2><table><thead><tr><th>Nama</th><th class="n">Perjalanan</th><th class="n">Uang harian</th><th class="n">Biaya lain</th><th class="n">Total</th></tr></thead><tbody>
+   ${Object.entries(per).sort((a, c) => c[1].j - a[1].j).map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.n}</td><td class="n">${rp(o.h)}</td><td class="n">${rp(o.t)}</td><td class="n"><b>${rp(o.j)}</b></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ======================= Pemeriksaan =======================
+async function halPeriksa() {
+  kerangka('periksa', '<h1>Pemeriksaan data</h1><div id="isi" class="mut">Memuat…</div>');
+  let bt, gd, spj, nol;
+  try {
+    [bt, gd, spj, nol] = await Promise.all([
+      q(db.from('v_bentrok_peserta').select('*').order('mulai_bentrok').limit(300)),
+      q(db.from('v_spd_ganda').select('*').order('no_spd')),
+      q(db.from('kegiatan').select('id,acara,tgl_berangkat,status').in('status', ['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN']).is('tgl_spj', null).order('tgl_berangkat')),
+      q(db.from('peserta').select('kegiatan_id,nama_cetak,kegiatan!inner(acara,tgl_berangkat,status)').eq('jumlah', 0).limit(300))
+    ]);
+  } catch (e) { return galat(e); }
+  const link = id => `<a href="#/kegiatan/${id}">#${id}</a>`;
+  $('#isi').className = '';
+  $('#isi').innerHTML = `
+  <div class="card tbl"><h2 style="margin-top:0">Jadwal bentrok (${bt.length})</h2><p class="mut">Pegawai yang sama ditugaskan di dua kegiatan pada tanggal yang beririsan.</p>
+   <table><thead><tr><th>Pegawai</th><th>Kegiatan A</th><th>Kegiatan B</th><th>Bentrok</th></tr></thead><tbody>${bt.map(r => `<tr><td>${esc(r.nama)}</td><td>${link(r.kegiatan_a)} ${esc(String(r.acara_a).slice(0, 50))}</td><td>${link(r.kegiatan_b)} ${esc(String(r.acara_b).slice(0, 50))}</td><td>${tgl(r.mulai_bentrok)}${r.mulai_bentrok !== r.akhir_bentrok ? ' – ' + tgl(r.akhir_bentrok) : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="mut">Tidak ada.</td></tr>'}</tbody></table></div>
+  <div class="card tbl"><h2 style="margin-top:0">Nomor SPD ganda (${gd.length})</h2><table><thead><tr><th>Nomor</th><th>Dipakai</th><th>Kegiatan</th></tr></thead><tbody>${gd.map(r => `<tr><td>${r.no_spd}/${r.tahun_spd}</td><td>${r.jumlah}×</td><td>${r.kegiatan_ids.map(link).join(', ')}</td></tr>`).join('') || '<tr><td colspan="3" class="mut">Tidak ada.</td></tr>'}</tbody></table></div>
+  <div class="card tbl"><h2 style="margin-top:0">Terverifikasi/Dicetak/Dicairkan tanpa tanggal SPJ (${spj.length})</h2><table><thead><tr><th>ID</th><th>Tanggal</th><th>Acara</th><th>Status</th></tr></thead><tbody>${spj.map(r => `<tr><td>${link(r.id)}</td><td>${tgl(r.tgl_berangkat)}</td><td>${esc(String(r.acara).slice(0, 90))}</td><td>${badge(r.status)}</td></tr>`).join('') || '<tr><td colspan="4" class="mut">Tidak ada.</td></tr>'}</tbody></table></div>
+  <div class="card tbl"><h2 style="margin-top:0">Peserta dengan biaya Rp 0 (${nol.length})</h2><table><thead><tr><th>Kegiatan</th><th>Nama</th><th>Status</th></tr></thead><tbody>${nol.map(r => `<tr><td>${link(r.kegiatan_id)} ${tgl(r.kegiatan.tgl_berangkat)} ${esc(String(r.kegiatan.acara).slice(0, 50))}</td><td>${esc(r.nama_cetak)}</td><td>${badge(r.kegiatan.status)}</td></tr>`).join('') || '<tr><td colspan="3" class="mut">Tidak ada.</td></tr>'}</tbody></table></div>`;
+}
+
+// ======================= Master data (lihat saja) =======================
+function halMaster(tab) {
+  const M = S.master;
+  const tabs = [['pegawai', 'Pegawai'], ['pejabat', 'Pejabat'], ['tujuan', 'Tujuan'], ['kendaraan', 'Kendaraan']];
+  let isi = '';
+  if (tab === 'pegawai') isi = `<table><thead><tr><th>Nama</th><th>NIP</th><th>Jenis</th><th>Gol</th><th>Eselon</th><th>Jabatan</th></tr></thead><tbody>${M.peg.map(p => `<tr><td>${esc(p.nama)}</td><td>${esc(p.nip || '')}</td><td>${p.jenis === 'ASN' ? 'ASN' : 'Non-ASN'}</td><td>${esc(p.riwayat?.golongan || '')}</td><td>${p.riwayat?.eselon || ''}</td><td>${esc(p.riwayat?.jabatan || '')}</td></tr>`).join('')}</tbody></table>`;
+  if (tab === 'pejabat') isi = `<table><thead><tr><th>Peran</th><th>Nama</th><th>Subbagian</th><th>Berlaku</th></tr></thead><tbody>${M.pej.map(p => `<tr><td>${p.peran}</td><td>${esc(M.peg_by[p.pegawai_id]?.nama)}</td><td>${esc(M.sub_by[p.sub_bagian_id]?.kode || '')}</td><td>${tgl(p.berlaku_dari)}${p.berlaku_sampai ? ' – ' + tgl(p.berlaku_sampai) : ' –'}</td></tr>`).join('')}</tbody></table>`;
+  if (tab === 'tujuan') isi = `<table><thead><tr><th>Nama</th><th>Tingkat</th><th>Provinsi</th><th>D/L</th></tr></thead><tbody>${M.tuj.map(t => `<tr><td>${esc(t.nama)}</td><td>${t.tingkat === 'KECAMATAN' ? 'Kecamatan' : 'Kab/Kota'}</td><td>${esc(t.provinsi || '')}</td><td>${t.kode_dn}</td></tr>`).join('')}</tbody></table>`;
+  if (tab === 'kendaraan') isi = `<table><thead><tr><th>Jenis</th><th>Nopol</th></tr></thead><tbody>${M.kend.map(v => `<tr><td>${esc(v.jenis)}</td><td>${esc(v.nopol)}</td></tr>`).join('')}</tbody></table>`;
+  kerangka('master', `<h1>Master data</h1><div class="tab">${tabs.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" onclick="location.hash='#/master/${k}'">${t}</button>`).join('')}</div><div class="card tbl">${isi}</div><p class="mut">Tampilan baca saja. Perubahan master data (pegawai, pejabat, tarif) sementara dilakukan lewat SQL Editor; halaman edit menyusul.</p>`);
+}
+
+mulai();
+</script>
+</body>
+</html>
