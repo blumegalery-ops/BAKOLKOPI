@@ -140,6 +140,7 @@ function rute() {
   if (a === 'baru') return halForm(null);
   if (a === 'ubah') return halForm(+b);
   if (a === 'cetak') return halCetak(+b, h[2] || 'surat-tugas');
+  if (a === 'laporan') return halLaporan(+b);
   if (a === 'rekap') return halRekap();
   if (a === 'periksa') return halPeriksa();
   if (a === 'master') return halMaster(b || 'pegawai');
@@ -213,8 +214,9 @@ async function halDetail(id) {
   if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status) && boleh('ADMIN') && !k.tgl_spj) tombol.push('<button id="b-spjk">Koreksi tanggal SPJ (admin)</button>');
   if (['TERVERIFIKASI', 'DICETAK', 'DICAIRKAN'].includes(k.status)) tombol.push('<button id="b-cetak">Catat pencetakan…</button>');
   if (k.status === 'DICETAK' && boleh('BENDAHARA')) tombol.push('<button class="pri" id="b-cair">Tandai dicairkan</button>');
+  tombol.unshift(`<a class="btn" href="#/cetak/${id}/nota-dinas">Nota Dinas</a>`);
+  if (k.jenis === 'SPPD') ['rekap-rpd:Rekap RPD', 'rpd:RPD', 'kuitansi:Kuitansi', 'spd:SPD'].forEach(x => tombol.unshift(`<a class="btn" href="#/cetak/${id}/${x.split(':')[0]}">Cetak ${x.split(':')[1]}</a>`));
   tombol.unshift(`<a class="btn" href="#/cetak/${id}/surat-tugas">Cetak Surat Tugas</a>`);
-  if (k.jenis === 'SPPD') tombol.unshift(`<a class="btn" href="#/cetak/${id}/spd">Cetak SPD</a>`);
   const pej = k.pejabat_spd ? ['KPA', 'PPTK', 'BENDAHARA'].map(r => k.pejabat_spd[r] ? `${r}: ${esc(k.pejabat_spd[r].nama)}` : '').filter(Boolean).join(' · ') : '';
   $('main').innerHTML = `<p><a href="#/kegiatan">← Daftar kegiatan</a></p>
   <div class="card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h1 style="margin-bottom:4px">${esc(k.acara)}</h1>${badge(k.status)} ${k.dalam_revisi ? '<span class="badge">Dalam revisi</span>' : ''} <span class="mut">ID ${k.id} · ${k.jenis === 'SPPD' ? 'SPPD' : 'Surat tugas saja'}</span></div><div class="row">${tombol.join(' ')}</div></div>
@@ -470,7 +472,7 @@ function suratTugas(D) {
 function kopSPD() {
   return `<div class="kop"><img src="${LOGO}" alt=""><div><b>PEMERINTAH KABUPATEN BATANG</b><br><b class="b2">SEKRETARIAT DAERAH</b><br><small>Jalan Raden Ajeng Kartini Nomor 1 Batang 51215, Telepon (028)391571<br>Faksimile (0285)39105, Laman Sekda@batangkab.go.id, batang.sekda@gmail.com</small></div></div>`;
 }
-function spdDepan(D, p, pertama, pengikut) {
+function spdDepan(D, p, pengikut, offset) {
   const { k, tujuan, pjSPD, sub, kend, lahir, ket } = D;
   const luar = k.kode_dn === 'L';
   const akun = (luar ? sub?.kode_rek_luar : sub?.kode_rek_dalam) || '';
@@ -481,11 +483,11 @@ function spdDepan(D, p, pertama, pengikut) {
   const th = String(k.tgl_surat_tugas || k.tgl_berangkat).slice(0, 4);
   const ketLain = `${k.kode_surat_tugas || ''}/${k.no_surat_tugas_urut || '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'}/${th} tanggal ${tglP(k.tgl_surat_tugas || k.tgl_berangkat)}`;
   const ab = (l, v) => `<span class="lt">${l}.</span>${v}`;
-  const baris = pertama ? pengikut : [];
-  const nb = Math.max(3, baris.length);
+  const baris = pengikut;
+  const nb = 3;
   const rowsPeng = Array.from({ length: nb }, (_, i) => { const x = baris[i];
-    return x ? `<tr><td class="a">${i + 1}. ${esc(x.nama_cetak)}</td><td class="c">${lahir[x.pegawai_id] ? tglP(lahir[x.pegawai_id]) : ''}</td><td class="c">${esc(ket[x.pegawai_id] || '')}</td></tr>`
-             : `<tr><td class="a">${i + 1}.</td><td></td><td></td></tr>`; }).join('');
+    return x ? `<tr><td class="a">${offset + i + 1}. ${esc(x.nama_cetak)}</td><td class="c">${lahir[x.pegawai_id] ? tglP(lahir[x.pegawai_id]) : ''}</td><td class="c">${esc(ket[x.pegawai_id] || '')}</td></tr>`
+             : `<tr><td class="a">${offset + i + 1}.</td><td></td><td></td></tr>`; }).join('');
   return `<section class="kertas spd">${kopSPD()}
   <table class="no-spd"><tr><td>Lembar ke</td><td>:</td><td></td></tr><tr><td>Kode</td><td>:</td><td>000.1.2.3</td></tr><tr><td>Nomor</td><td>:</td><td>${nom}</td></tr></table>
   <h3 class="jdl">SURAT PERJALANAN DINAS (SPD)</h3>
@@ -539,34 +541,257 @@ const CSS_CETAK = `<style id="css-cetak">
 .kertas .jdl{text-align:center;font-size:13pt;margin:6px 0;text-decoration:underline}
 .kertas .f td.l{width:84px}.kertas .f td.l2{width:70px}.kertas .f td.t{width:12px}.kertas .f td.no{width:24px}
 .kertas .ttd{margin:18px 0 0 55%;text-align:center}.kertas .ruang{height:70px}.kertas p{margin:4px 0}
-.kop{display:flex;gap:12px;align-items:center;border-bottom:3px double #000;padding-bottom:6px;margin-bottom:8px}.kop img{height:64px}.kop div{text-align:center;flex:1;font-size:12pt}.kop .b2{font-size:14pt}.kop small{font-size:8pt}
+.kop{display:flex;gap:12px;align-items:center;border-bottom:3px double #000;padding-bottom:6px;margin-bottom:8px;font-family:Arial,Helvetica,sans-serif}.kop img{height:22mm}.kop div{text-align:center;flex:1;font-size:15pt;line-height:1.25}.kop .b2{font-size:17.5pt}.kop small{font-size:10pt;line-height:1.3}
 .no-spd{width:200px!important;margin-left:auto;font-size:10pt}
 .spd,.spd *{font-family:Arial,Helvetica,sans-serif}.spd{font-size:10pt}.spd .g{border:1px solid #000}.spd .lt{display:inline-block;width:30px}.spd .g td.c{text-align:center}.spd .jdl{font-size:10pt;font-weight:bold}.spd .g td{border:1px solid #000;padding:3px 5px}.spd .g td.n{width:26px;text-align:center}.spd .g td.a{width:42%}
 .ttd2{margin:14px 0 0 50%;font-size:11pt}.ttd2 table{width:auto}.ttd2 td{border:0!important;padding:0 4px}.ttd2 p{margin:6px 0}
 .belakang .g td{width:50%;vertical-align:top}.belakang .c{text-align:center}.belakang .kecil{font-size:9.5pt;text-align:justify}
 .alat{max-width:210mm;margin:0 auto 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.arial,.arial *{font-family:Arial,Helvetica,sans-serif}.arial{font-size:10pt}
+.kertas .g{border-collapse:collapse;width:100%;table-layout:auto}.kertas .g>tbody>tr>td,.kertas .g>thead>tr>th,.kertas .g>tbody>tr>th{border:1px solid #000;padding:3px 5px}.kertas .g th{text-align:center;font-weight:bold;color:#000;background:#fff;text-transform:none;font-size:inherit;letter-spacing:0}.kertas .f{border-collapse:collapse;width:100%}.kertas .f td{border:0;padding:1px 3px;vertical-align:top}.kertas .f td:first-child{white-space:nowrap}
+.kertas .c{text-align:center}.kertas .n{text-align:right;white-space:nowrap}.kertas .kecil{font-size:9pt}
+.kui .kb td{vertical-align:top}.kui .kfl{display:flex;gap:10px;align-items:center}.kui .kopk{border-bottom:0}.kui .kopk img{height:15mm}.kui .jd{font-weight:bold;text-decoration:underline;margin-bottom:8px}
+.kui .f td.l{width:120px}.kui .pot td{white-space:nowrap;font-size:9pt}.kui .kb{table-layout:fixed}.kui .f td.l{white-space:nowrap}.rek .g{table-layout:fixed}.rek .g td,.rek .g th{word-break:break-word}.kui .stempel{font:bold 15pt Arial;letter-spacing:1px;-webkit-text-stroke:1px #000;color:#fff;margin-bottom:6px}
+.kui .kotak{border:1px solid #000;padding:6px}.kui .ttd3 .ruang{height:60px}
+.rpd .g td.n{text-align:right}.rpd .tt td{padding:2px 4px}.rpd .ruang{height:55px}
+.rek .g td,.rek .g th{font-size:9pt}.rek .ruang{height:60px}
+.nota{font-size:11pt}.nota .j{text-align:justify}.nota .f td.l3{width:90px}.nota .pl td.l{width:70px}.nota .rg{margin:2px 0 6px 24px;padding-left:16px}
 @media print{header,.alat,#toast,#css-app-hide{display:none!important}body{background:#fff}main{padding:0;max-width:none}.kertas{box-shadow:none;margin:0;padding:0}@page{size:A4;margin:12mm 14mm}}
 </style>`;
+// ======================= Dokumen keuangan & Nota Dinas =======================
+const SATUAN = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+function terbilang(n) {
+  n = Math.floor(Math.abs(Number(n) || 0));
+  if (n < 12) return SATUAN[n];
+  if (n < 20) return terbilang(n - 10) + ' belas';
+  if (n < 100) return terbilang(Math.floor(n / 10)) + ' puluh' + (n % 10 ? ' ' + terbilang(n % 10) : '');
+  if (n < 200) return 'seratus' + (n - 100 ? ' ' + terbilang(n - 100) : '');
+  if (n < 1000) return terbilang(Math.floor(n / 100)) + ' ratus' + (n % 100 ? ' ' + terbilang(n % 100) : '');
+  if (n < 2000) return 'seribu' + (n - 1000 ? ' ' + terbilang(n - 1000) : '');
+  if (n < 1e6) return terbilang(Math.floor(n / 1000)) + ' ribu' + (n % 1000 ? ' ' + terbilang(n % 1000) : '');
+  if (n < 1e9) return terbilang(Math.floor(n / 1e6)) + ' juta' + (n % 1e6 ? ' ' + terbilang(n % 1e6) : '');
+  if (n < 1e12) return terbilang(Math.floor(n / 1e9)) + ' miliar' + (n % 1e9 ? ' ' + terbilang(n % 1e9) : '');
+  return String(n);
+}
+const terbilangRp = n => { const t = terbilang(n); return (t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Nol') + ' rupiah'; };
+const angka = n => Number(n || 0).toLocaleString('id-ID');
+const rpd = n => 'Rp. ' + angka(n) + ',00';
+const SUBKEG = { PROTOKOL: 'Fasilitasi Keprotokolan', DOKPIM: 'Pendokumentasian Tugas Pimpinan', KOMPIM: 'Fasilitasi Komunikasi Pimpinan' };
+const jumlahPeserta = p => Number(p.harian) + Number(p.transport) + Number(p.inap) + Number(p.kontribusi) + Number(p.representasi);
+function tglSPJ(k) { return k.tgl_spj || k.tgl_kembali; }
+async function pejabatSPJ(k) {
+  return k.pejabat_spj || await q(db.rpc('snapshot_pejabat', { p_sub: k.sub_bagian_id, p_tanggal: tglSPJ(k) }));
+}
+const ttdBlok = (pj, ext) => `<b><u>${esc(pj?.nama || '…')}</u></b>${ext ? '<br>' + ext : ''}<br>NIP.${esc(pj?.nip || '')}`;
+
+// ---------- Kuitansi (Tanda Bukti Pengeluaran): satu per kegiatan ----------
+function kuitansi(D, pjSPJ) {
+  const { k, ps, tujuan, sub } = D;
+  const luar = k.kode_dn === 'L';
+  const akun = (luar ? sub?.kode_rek_luar : sub?.kode_rek_dalam) || '';
+  const total = ps.reduce((a, p) => a + jumlahPeserta(p), 0);
+  const p1 = ps[0];
+  const tj = tujuan.map(t => t.nama).join(', ');
+  const untuk = `Belanja perjalanan dinas ke ${tj} pada tanggal ${rentangTgl(k.tgl_berangkat, k.tgl_kembali)} a.n. ${p1?.nama_cetak || ''}${ps.length > 1 ? ' beserta rekan-rekan' : ''}`;
+  const d = dt(tglSPJ(k));
+  const th = String(k.tgl_berangkat).slice(0, 4);
+  return `<section class="kertas arial kui"><table class="g kb"><colgroup><col style="width:30%"><col style="width:34%"><col style="width:36%"></colgroup>
+   <tr><td colspan="2" class="kopk"><div class="kfl"><img src="${LOGO}" alt=""><div style="flex:1"><b>PEMERINTAH KABUPATEN BATANG</b><table class="f"><tr><td style="width:110px;white-space:nowrap">Tahun Anggaran</td><td>: ${th}</td></tr><tr><td style="white-space:nowrap">Kode Rekening</td><td>: ${esc(akun)}</td></tr></table></div></div></td>
+     <td class="r"><table class="f"><tr><td style="width:70px;white-space:nowrap">Nomor</td><td>:</td></tr><tr><td style="white-space:nowrap">Lembar ke</td><td>: I/II/III/IV</td></tr></table></td></tr>
+   <tr><td colspan="2" rowspan="1" class="isi"><div class="jd">TANDA BUKTI PENGELUARAN</div>
+     <table class="f">
+      <tr><td class="l">Telah terima dari</td><td>:</td><td>Kuasa Pengguna Anggaran Bag. Prokompim Setda Kab. Batang</td></tr>
+      <tr><td colspan="3">&nbsp;</td></tr>
+      <tr><td class="l">Uang sejumlah</td><td>:</td><td><b>${rpd(total)}</b></td></tr>
+      <tr><td class="l">Terbilang</td><td>:</td><td><i>${esc(terbilangRp(total))}</i></td></tr>
+      <tr><td colspan="3">&nbsp;</td></tr>
+      <tr><td class="l">Untuk pembayaran</td><td>:</td><td>${esc(untuk)}</td></tr>
+      <tr><td colspan="3">&nbsp;</td></tr>
+      <tr><td class="l">Untuk sub kegiatan</td><td>:</td><td>${esc(SUBKEG[sub?.kode] || sub?.nama || '')}</td></tr></table></td>
+    <td class="r"><div class="kecil">Barang-barang termaksud telah dibukukan ke buku persediaan / inventaris pada tgl:</div><br><table class="f pot">
+      <tr><td>Jumlah Kotor</td><td class="n">${rpd(total)}</td></tr><tr><td>Potongan</td><td class="n">Rp. -</td></tr><tr><td>Dibayarkan</td><td class="n"><b>${rpd(total)}</b></td></tr>
+      <tr><td colspan="2">Perincian Potongan :</td></tr><tr><td>PPN</td><td class="n">Rp. -</td></tr><tr><td>PPh Ps. 21</td><td class="n">Rp. -</td></tr><tr><td>PPh Ps. 22</td><td class="n">Rp. -</td></tr><tr><td>PPh Ps. 23</td><td class="n">Rp. -</td></tr></table></td></tr>
+   <tr><td class="lunas"><div class="stempel">DIBAYAR<br>LUNAS</div><div class="kotak">Tanggal : …………………………<br><br>Paraf &nbsp;&nbsp;&nbsp;&nbsp;: …………………………</div></td>
+     <td class="pen"><div class="c">Batang,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${BLN[d.getUTCMonth()]} ${d.getUTCFullYear()}</div>
+       <table class="f"><tr><td style="width:90px">Tanda Tangan</td><td>: ……………………</td></tr><tr><td>N a m a</td><td>: ${esc(p1?.nama_cetak || '')}</td></tr><tr><td>A l a m a t</td><td>: Setda Kab. Batang</td></tr></table></td>
+     <td class="r">Yang berhak menerima</td></tr>
+   <tr><td colspan="3" class="ttd3"><table class="f"><tr>
+     <td class="c">Setuju dibayarkan<br>Kuasa Pengguna Anggaran<div class="ruang"></div>${ttdBlok(pjSPJ.KPA)}</td>
+     <td class="c">Pejabat Pelaksana<br>Teknis Kegiatan,<div class="ruang"></div>${ttdBlok(pjSPJ.PPTK)}</td>
+     <td class="c">Bendahara Pengeluaran<br>Pembantu,<div class="ruang"></div>${ttdBlok(pjSPJ.BENDAHARA)}</td></tr></table></td></tr>
+  </table></section>`;
+}
+
+// ---------- RPD / Lampiran SPD: satu per peserta ----------
+function rpdHalaman(D, p, pjSPJ) {
+  const { k, ps } = D;
+  const utama = ps.find(x => !x.pengikut && x.jenis_cetak !== 'NON_ASN' && x.no_spd) || ps.find(x => x.no_spd);
+  const noSPD = p.no_spd ? `${p.no_spd}/${p.tahun_spd}` : (utama ? `${utama.no_spd}/${utama.tahun_spd}` : '…');
+  const j = jumlahPeserta(p);
+  const kpa = pjSPJ.KPA, bend = pjSPJ.BENDAHARA;
+  const nonasn = p.jenis_cetak === 'NON_ASN';
+  const baris = [['Uang Harian', Number(p.harian) + 0], ['Biaya Transportasi', p.transport], ['Biaya Penginapan', p.inap], ['Biaya Kontribusi', p.kontribusi], ['Uang Representasi', p.representasi]];
+  return `<section class="kertas rpd">${kopSPD()}
+  <table class="f" style="margin:6px 0"><tr><td style="width:150px">Lampiran SPD Nomor</td><td>: 000.1.2.3/ ${esc(noSPD)}</td></tr><tr><td>Tanggal</td><td>: ${esc(rentangTgl(k.tgl_berangkat, k.tgl_kembali))}</td></tr></table>
+  <table class="g"><thead><tr><th style="width:28px">No</th><th>Perincian Biaya</th><th style="width:140px">Jumlah</th><th style="width:150px">Keterangan</th></tr></thead><tbody>
+   ${baris.map((b, i) => `<tr><td class="c">${i + 1}</td><td>${b[0]}</td><td class="n">${angka(b[1])}</td><td></td></tr>`).join('')}
+   <tr><td colspan="2" class="c"><b>Jumlah</b></td><td class="n"><b>${angka(j)}</b></td><td></td></tr>
+   <tr><td colspan="4"><i>Terbilang : ${esc(terbilangRp(j))}</i></td></tr></tbody></table>
+  <table class="f tt"><tr><td class="c" style="width:50%"><div>&nbsp;</div></td><td class="c">Batang,</td></tr>
+   <tr><td>Telah dibayar uang sebesar<br>Rp. ${angka(j)},00<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Bendahara Pengeluaran,<div class="ruang"></div>${ttdBlok(bend)}</td>
+    <td>Telah menerima jumlah uang sejumlah<br>Rp. ${angka(j)},00<br><span style="padding-left:70px">Yang menerima,</span><div class="ruang"></div><b><u>${esc(p.nama_cetak)}</u></b><br>NIP. ${esc(nonasn ? '-' : nipTeks(p.nip_cetak))}</td></tr></table>
+  <hr><div class="c"><b><u>PERHITUNGAN SPD RAMPUNG</u></b></div>
+  <table class="f" style="margin-top:6px"><tr><td style="width:60%">Ditetapkan sejumlah</td><td>: Rp. ${angka(j)}</td></tr><tr><td>Yang telah dibayar semula</td><td>: Rp. -</td></tr><tr><td>Sisa kurang/lebih</td><td>: Rp. -</td></tr></table>
+  <div class="ttd" style="margin-left:48%"><p>${esc(TEKS.kpa_label)},<br>Selaku Kuasa Pengguna Anggaran,</p><div class="ruang"></div><p>${ttdBlok(kpa, esc(kpa?.pangkat || ''))}</p></div></section>`;
+}
+
+// ---------- Rekap RPD: satu per kegiatan ----------
+function rekapRPD(D, pjSPJ) {
+  const { k, ps, tujuan } = D;
+  const luar = k.kode_dn === 'L';
+  const ada = f => ps.some(p => Number(p[f]) > 0);
+  const lain = ada('kontribusi') || ada('representasi');
+  const tot = ps.reduce((a, p) => ({ h: a.h + +p.harian, t: a.t + +p.transport, i: a.i + +p.inap, l: a.l + +p.kontribusi + +p.representasi, j: a.j + jumlahPeserta(p) }), { h: 0, t: 0, i: 0, l: 0, j: 0 });
+  const tj = tujuan.map(t => t.nama).join(', ');
+  const kol = lain ? 5 : 4;
+  return `<section class="kertas arial rek"><div class="c"><b>REKAP RINCIAN PERJALANAN DINAS (SPD) ${luar ? 'Luar daerah' : 'Dalam daerah'}</b><br><b>${esc(rentangTgl(k.tgl_berangkat, k.tgl_kembali))}</b><br><b>BAGIAN PROTOKOL DAN KOMUNIKASI PIMPINAN SETDA KAB. BATANG</b></div><br>
+  <table class="g"><thead><tr><th rowspan="2">NO.</th><th rowspan="2">TANGGAL</th><th rowspan="2">N A M A</th><th rowspan="2">GOL</th><th rowspan="2">TUJUAN DAERAH</th><th colspan="${kol}">PERINCIAN BIAYA</th><th rowspan="2" style="width:100px">TANDA TANGAN</th></tr>
+   <tr><th>UANG HARIAN</th><th>TRANSPORT</th><th>PENGINAPAN</th>${lain ? '<th>LAINNYA</th>' : ''}<th>JUMLAH</th></tr></thead><tbody>
+   ${ps.map((p, i) => `<tr><td class="c">${i + 1}</td><td class="c">${esc(rentangTgl(k.tgl_berangkat, k.tgl_kembali))}</td><td>${esc(p.nama_cetak)}</td><td class="c">${esc(p.golongan_cetak || '')}</td><td class="c">${esc(tj)}</td><td class="n">${angka(p.harian)}</td><td class="n">${p.transport > 0 ? angka(p.transport) : '-'}</td><td class="n">${p.inap > 0 ? angka(p.inap) : '-'}</td>${lain ? `<td class="n">${+p.kontribusi + +p.representasi > 0 ? angka(+p.kontribusi + +p.representasi) : '-'}</td>` : ''}<td class="n">${angka(jumlahPeserta(p))}</td><td style="height:34px">${i + 1}. ${i % 2 ? '' : ''}</td></tr>`).join('')}
+   <tr><td colspan="5" class="c"><b>JUMLAH</b></td><td class="n"><b>${angka(tot.h)}</b></td><td class="n"><b>${tot.t ? angka(tot.t) : '-'}</b></td><td class="n"><b>${tot.i ? angka(tot.i) : '-'}</b></td>${lain ? `<td class="n"><b>${tot.l ? angka(tot.l) : '-'}</b></td>` : ''}<td class="n"><b>${angka(tot.j)}</b></td><td></td></tr></tbody></table>
+  <table class="f" style="margin-top:14px"><tr><td class="c" style="width:50%">Mengetahui :<br>KABAG. PROTOKOL DAN KOMUNIKASI PIMPINAN<br>SETDA KAB. BATANG<div class="ruang"></div>${ttdBlok(pjSPJ.KPA)}</td>
+   <td class="c">Batang, ${tglP(tglSPJ(k))}<br>BENDAHARA PENGELUARAN PEMBANTU<div class="ruang"></div>${ttdBlok(pjSPJ.BENDAHARA)}</td></tr></table></section>`;
+}
+
+// ---------- Nota Dinas (laporan perjalanan) ----------
+async function muatLaporan(id) {
+  const lap = (await q(db.from('laporan_perjalanan').select('*').eq('kegiatan_id', id)))[0] || null;
+  const ag = lap ? await q(db.from('laporan_agenda').select('*').eq('laporan_id', lap.id).order('urutan')) : [];
+  return { lap, ag };
+}
+function defaultLaporan(D) {
+  const { k, ps, tujuan } = D; const p1 = ps[0];
+  const kabag = !!p1?.is_kabag_cetak;
+  const hari = hariNama(k.tgl_berangkat);
+  return {
+    tgl_nota: k.tgl_kembali, kepada: kabag ? 'Asisten III Setda Kabupaten Batang' : 'Kepala Bagian Prokompim Setda Kabupaten Batang',
+    dari_sebutan: p1?.sebutan_laporan_cetak || (kabag ? 'Kepala Bagian Prokompim Setda Kab. Batang' : (p1?.jabatan_cetak || '')),
+    perihal: 'Laporan Kegiatan ' + k.acara, latar_belakang: '', tugas: [], narasi: '', status: 'DRAFT',
+    agenda: [{ label: '', judul: '', waktu_teks: `${hari}, ${rentangTgl(k.tgl_berangkat, k.tgl_kembali)}${k.jam_mulai ? ' pukul ' + jamTeks(k.jam_mulai, k.jam_selesai) : ''}`, tempat: k.tempat_surat || tujuan.map(t => t.nama).join(', '), peserta_teks: '', rangkaian: [] }]
+  };
+}
+async function halLaporan(id) {
+  kerangka('kegiatan', '<div class="mut">Memuat…</div>');
+  if (!boleh('ADMIN', 'OPERATOR')) { $('main').innerHTML = '<div class="card">Hanya admin dan operator yang dapat mengisi laporan. <a href="#/cetak/' + id + '/nota-dinas">Lihat Nota Dinas</a></div>'; return; }
+  let D, L;
+  try { D = await dataCetak(id); L = await muatLaporan(id); } catch (e) { return galat(e); }
+  const def = defaultLaporan(D);
+  const v = L.lap ? { ...L.lap, agenda: L.ag.map(a => ({ ...a })) } : def;
+  if (!v.agenda.length) v.agenda = def.agenda;
+  const bar = (t) => (t || []).join('\n');
+  $('main').innerHTML = `<p><a href="#/kegiatan/${id}">← Kembali ke kegiatan</a></p><h1>Nota Dinas (laporan) — kegiatan #${id}</h1>
+  <div class="card"><div class="grid">
+   <div><label>Kepada Yth</label><input id="l-kepada" style="width:100%" value="${esc(v.kepada || '')}"></div>
+   <div><label>Dari</label><input id="l-dari" style="width:100%" value="${esc(v.dari_sebutan || '')}"></div>
+   <div><label>Tanggal nota</label><input type="date" id="l-tgl" value="${v.tgl_nota || ''}"></div></div><br>
+   <label>Perihal</label><textarea id="l-perihal">${esc(v.perihal || '')}</textarea>
+   <label style="margin-top:8px">1. Latar belakang</label><textarea id="l-lb" style="min-height:120px">${esc(v.latar_belakang || '')}</textarea></div>
+  <div class="card"><h2 style="margin-top:0">2. Pelaksanaan kegiatan (agenda)</h2><div id="l-agenda"></div><button id="l-addag">+ Tambah agenda</button></div>
+  <div class="card"><label>3. Tugas yang dilaksanakan (satu butir per baris; kosongkan bila tidak ada)</label><textarea id="l-tugas" style="min-height:90px">${esc(bar(v.tugas))}</textarea></div>
+  <div class="card"><label>Narasi singkat kegiatan</label><textarea id="l-narasi" style="min-height:160px">${esc(v.narasi || '')}</textarea></div>
+  <div class="row"><label style="color:var(--ink);font-size:14px"><input type="checkbox" id="l-final" ${v.status === 'FINAL' ? 'checked' : ''}> Tandai FINAL</label><button class="pri" id="l-simpan">Simpan</button><a class="btn" href="#/cetak/${id}/nota-dinas">Pratinjau / cetak</a></div>`;
+  const ag = v.agenda;
+  const drawAg = () => {
+    $('#l-agenda').innerHTML = ag.map((a, i) => `<div class="card" style="background:var(--bg)"><div class="grid">
+      <div><label>Label (A, B, … bila lebih dari satu)</label><input data-i="${i}" data-f="label" value="${esc(a.label || '')}"></div>
+      <div><label>Judul agenda (opsional)</label><input data-i="${i}" data-f="judul" value="${esc(a.judul || '')}"></div>
+      <div><label>Waktu</label><input data-i="${i}" data-f="waktu_teks" style="width:100%" value="${esc(a.waktu_teks || '')}"></div>
+      <div><label>Tempat</label><input data-i="${i}" data-f="tempat" style="width:100%" value="${esc(a.tempat || '')}"></div>
+      <div><label>Peserta</label><input data-i="${i}" data-f="peserta_teks" style="width:100%" value="${esc(a.peserta_teks || '')}"></div></div>
+      <label style="margin-top:8px">Rangkaian acara utama (satu per baris)</label><textarea data-i="${i}" data-f="rangkaian">${esc(bar(a.rangkaian))}</textarea>
+      ${ag.length > 1 ? `<button class="bad" data-del="${i}">Hapus agenda</button>` : ''}</div>`).join('');
+    $('#l-agenda').querySelectorAll('[data-f]').forEach(el => el.oninput = () => { ag[+el.dataset.i][el.dataset.f] = el.dataset.f === 'rangkaian' ? el.value.split('\n').map(s => s.trim()).filter(Boolean) : el.value; });
+    $('#l-agenda').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { ag.splice(+b.dataset.del, 1); drawAg(); });
+  };
+  drawAg();
+  $('#l-addag').onclick = () => { ag.push({ label: '', judul: '', waktu_teks: '', tempat: '', peserta_teks: '', rangkaian: [] }); drawAg(); };
+  $('#l-simpan').onclick = async () => {
+    const baris = t => t.split('\n').map(s => s.trim()).filter(Boolean);
+    const row = { kegiatan_id: id, tgl_nota: $('#l-tgl').value || null, kepada: $('#l-kepada').value.trim(), dari_sebutan: $('#l-dari').value.trim(), perihal: $('#l-perihal').value.trim(),
+      latar_belakang: $('#l-lb').value.trim(), tugas: baris($('#l-tugas').value), narasi: $('#l-narasi').value.trim(), disusun_oleh: D.ps[0]?.pegawai_id || null, status: $('#l-final').checked ? 'FINAL' : 'DRAFT' };
+    const r = await aksi(async () => {
+      const saved = (await q(db.from('laporan_perjalanan').upsert(row, { onConflict: 'kegiatan_id' }).select('id')))[0];
+      await q(db.from('laporan_agenda').delete().eq('laporan_id', saved.id));
+      const rows = ag.filter(a => a.waktu_teks || a.tempat || a.peserta_teks || a.judul || (a.rangkaian || []).length).map((a, i) => ({ laporan_id: saved.id, urutan: i + 1, label: a.label || null, judul: a.judul || null, waktu_teks: a.waktu_teks || null, tempat: a.tempat || null, peserta_teks: a.peserta_teks || null, rangkaian: a.rangkaian || [] }));
+      if (rows.length) await q(db.from('laporan_agenda').insert(rows));
+      return true;
+    }, 'Laporan tersimpan');
+    if (r) location.hash = '#/cetak/' + id + '/nota-dinas';
+  };
+}
+function notaDinas(D, lap, ag) {
+  const { k, ps } = D; const p1 = ps[0];
+  const sebut = lap.dari_sebutan || '';
+  const ttd = /^Kepala Bagian Prokompim/i.test(sebut) ? 'Kepala<br>Bagian Prokompim<br>Setda Kab. Batang' : `${esc(sebut)}<br>Bagian Prokompim<br>Setda Kab. Batang`;
+  let no = 0; const bagian = [];
+  if (lap.latar_belakang) bagian.push(`<p><b>${++no}. Latar Belakang</b></p><p class="j">${esc(lap.latar_belakang).replace(/\n/g, '<br>')}</p>`);
+  if (ag.length) bagian.push(`<p><b>${++no}. Pelaksanaan Kegiatan</b></p>${ag.map(a => `${a.label ? `<p><b>${esc(a.label)}.${a.judul ? ' ' + esc(a.judul) : ''}</b></p>` : (a.judul ? `<p><b>${esc(a.judul)}</b></p>` : '')}
+    <table class="f pl">${a.waktu_teks ? `<tr><td class="l">Waktu</td><td>:</td><td>${esc(a.waktu_teks)}</td></tr>` : ''}${a.tempat ? `<tr><td class="l">Tempat</td><td>:</td><td>${esc(a.tempat)}</td></tr>` : ''}${a.peserta_teks ? `<tr><td class="l">Peserta</td><td>:</td><td>${esc(a.peserta_teks)}</td></tr>` : ''}</table>
+    ${(a.rangkaian || []).length ? `<p style="margin:4px 0 0">Rangkaian acara utama:</p><ol class="rg">${a.rangkaian.map(r => `<li>${esc(r)}</li>`).join('')}</ol>` : ''}`).join('')}`);
+  if ((lap.tugas || []).length) bagian.push(`<p><b>${++no}. Saya bertugas sebagai ${esc(sebut ? '' : '')}petugas pada kegiatan tersebut:</b></p><ul class="rg">${lap.tugas.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`);
+  if (lap.narasi) bagian.push(`<p><b>${++no}. Narasi Singkat Kegiatan</b></p><p class="j">${esc(lap.narasi).replace(/\n/g, '<br>')}</p>`);
+  return `<section class="kertas nota"><h2 class="jdl" style="text-decoration:none">NOTA DINAS</h2>
+   <table class="f"><tr><td class="l3">Kepada Yth</td><td>:</td><td>${esc(lap.kepada || '')}</td></tr><tr><td>D a r i</td><td>:</td><td>${esc(sebut)}</td></tr><tr><td>Tanggal</td><td>:</td><td>${lap.tgl_nota ? tglP(lap.tgl_nota) : '…'}</td></tr><tr><td>Perihal</td><td>:</td><td>${esc(lap.perihal || '')}</td></tr></table><hr>
+   <p>Dengan hormat,</p><p class="j">Sehubungan dengan tugas yang telah dilaksanakan, dengan ini kami sampaikan laporan sebagai berikut:</p>${bagian.join('')}
+   <div class="ttd" style="margin-left:55%"><p>${ttd}</p><div class="ruang"></div><p><b>${esc(namaTitle(p1?.nama_cetak || ''))}</b><br>NIP.${esc(nipTeks(p1?.nip_cetak))}</p></div></section>`;
+}
+
+const DOKUMEN = [['surat-tugas', 'Surat Tugas'], ['spd', 'SPD'], ['kuitansi', 'Kuitansi'], ['rpd', 'RPD'], ['rekap-rpd', 'Rekap RPD'], ['nota-dinas', 'Nota Dinas']];
 async function halCetak(id, dok) {
   kerangka('kegiatan', '<div class="mut">Menyiapkan dokumen…</div>');
   let D;
   try { D = await dataCetak(id); } catch (e) { return galat(e); }
   const { k, ps } = D;
   if (!$('#css-cetak')) document.head.insertAdjacentHTML('beforeend', CSS_CETAK);
-  let html = '';
-  if (dok === 'surat-tugas') html = suratTugas(D);
-  else if (dok === 'spd') {
-    const apakahIkut = p => p.pengikut || p.jenis_cetak === 'NON_ASN';   // Non-ASN selalu di kolom Pengikut
-    const utama = ps.filter(p => !apakahIkut(p)), ikut = ps.filter(apakahIkut);
-    html = utama.map((p, i) => spdDepan(D, p, i === 0, ikut) + spdBelakang(D)).join('') || '<div class="card">Tidak ada peserta ASN (non-pengikut) untuk dibuatkan SPD.</div>';
-  } else html = '<div class="card">Jenis dokumen belum tersedia.</div>';
-  const peringatan = [];
+  const peringatan = []; let html = '';
+  try {
+    if (dok === 'surat-tugas') html = suratTugas(D);
+    else if (dok === 'spd') {
+      const apakahIkut = p => p.pengikut || p.jenis_cetak === 'NON_ASN';   // Non-ASN selalu di kolom Pengikut
+      const utama = ps.filter(p => !apakahIkut(p)), ikut = ps.filter(apakahIkut);
+      const potong = []; for (let i = 0; i < ikut.length; i += 3) potong.push(ikut.slice(i, i + 3));
+      if (!utama.length) html = '<div class="card">Tidak ada peserta ASN (non-pengikut) untuk dibuatkan SPD.</div>';
+      else {
+        const dep = [], belakang = [];
+        for (let i = 0; i < Math.max(utama.length, potong.length); i++) {
+          const p = utama[i] || utama[0];
+          const f = spdDepan(D, p, potong[i] || [], i * 3);
+          if (i < utama.length) { dep.push(f + spdBelakang(D)); } else dep.push(f);   // lembar lanjutan pengikut: hanya halaman depan
+        }
+        html = dep.join('');
+        if (potong.length > utama.length) peringatan.push(`Pengikut lebih banyak dari lembar SPD: ${potong.length - utama.length} lembar depan lanjutan ditambahkan di akhir.`);
+        if (ps.some(p => !apakahIkut(p) && !p.no_spd)) peringatan.push('Nomor SPD baru terbit saat kegiatan diajukan.');
+      }
+    } else if (['kuitansi', 'rpd', 'rekap-rpd'].includes(dok)) {
+      const pj = await pejabatSPJ(k);
+      if (!k.tgl_spj) peringatan.push('Tanggal SPJ belum diisi: tanggal dan pejabat memakai tanggal kembali sementara.');
+      if (!ps.length) html = '<div class="card">Belum ada peserta.</div>';
+      else if (dok === 'kuitansi') html = kuitansi(D, pj);
+      else if (dok === 'rekap-rpd') html = rekapRPD(D, pj);
+      else html = ps.filter(p => jumlahPeserta(p) > 0).map(p => rpdHalaman(D, p, pj)).join('') || '<div class="card">Tidak ada peserta dengan biaya.</div>';
+    } else if (dok === 'nota-dinas') {
+      const L = await muatLaporan(id);
+      if (!L.lap) html = `<div class="card">Isi laporan (Nota Dinas) belum dibuat. ${boleh('ADMIN', 'OPERATOR') ? `<a class="btn pri" href="#/laporan/${id}">Buat laporan</a>` : 'Minta admin atau operator mengisinya.'}</div>`;
+      else { html = notaDinas(D, L.lap, L.ag); if (L.lap.status !== 'FINAL') peringatan.push('Nota Dinas masih berstatus Draft.'); }
+    } else html = '<div class="card">Jenis dokumen belum tersedia.</div>';
+  } catch (e) { return galat(e); }
   if (dok === 'surat-tugas' && !k.no_surat_tugas_urut) peringatan.push('Nomor urut surat tugas belum diisi (tampil …).');
-  if (dok === 'spd' && ps.some(p => !p.pengikut && p.jenis_cetak !== 'NON_ASN' && !p.no_spd)) peringatan.push('Nomor SPD baru terbit saat kegiatan diajukan.');
   if (k.status === 'DRAFT' || k.status === 'DIKEMBALIKAN') peringatan.push('Kegiatan belum terverifikasi: ini pratinjau, pejabat dan angka bisa berubah.');
+  const daftar = DOKUMEN.filter(([d]) => k.jenis === 'SPPD' || ['surat-tugas', 'nota-dinas'].includes(d));
   $('main').innerHTML = `<div class="alat"><a href="#/kegiatan/${id}">← Kembali</a>
-   <a class="btn ${dok === 'surat-tugas' ? 'pri' : ''}" href="#/cetak/${id}/surat-tugas">Surat Tugas</a>
-   ${k.jenis === 'SPPD' ? `<a class="btn ${dok === 'spd' ? 'pri' : ''}" href="#/cetak/${id}/spd">SPD (depan + belakang)</a>` : ''}
+   ${daftar.map(([d, t]) => `<a class="btn ${dok === d ? 'pri' : ''}" href="#/cetak/${id}/${d}">${t}</a>`).join('')}
+   ${dok === 'nota-dinas' && boleh('ADMIN', 'OPERATOR') ? `<a class="btn" href="#/laporan/${id}">Isi / ubah laporan</a>` : ''}
    <button id="b-print">Cetak / simpan PDF</button></div>
    ${peringatan.map(w => `<div class="alat"><div class="warn" style="flex:1">${esc(w)}</div></div>`).join('')}${html}`;
   $('#b-print').onclick = () => window.print();
